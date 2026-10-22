@@ -385,14 +385,14 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 # MAGIC ---
 # MAGIC ## 6. From notebook to production job (Module 2.1 · Part 2)
 # MAGIC
-# MAGIC Interactive cells are great for development; production needs **automation**. We split the pipeline into **task notebooks** (in the `day2_tasks/` folder next to this notebook):
+# MAGIC Interactive cells are great for development; production needs **automation**. We split the pipeline into **task notebooks** (in the `day2_job_tasks/` folder next to this notebook):
 # MAGIC
 # MAGIC | Task key | Notebook | Depends on | Purpose |
 # MAGIC |---|---|---|---|
-# MAGIC | `ingest_bronze` | `day2_tasks/t1_ingest` | (none) | Auto Loader → bronze; publishes `rows_ingested` as a **task value** |
-# MAGIC | `merge_silver` | `day2_tasks/t2_silver_merge` | `ingest_bronze` | MERGE latest changes → silver |
-# MAGIC | `build_gold` | `day2_tasks/t3_gold` | `merge_silver` | Rebuild gold revenue |
-# MAGIC | `dq_check` | `day2_tasks/t4_dq_check` | `merge_silver` | Fail the run if `booking_id` is not unique |
+# MAGIC | `ingest_bronze` | `day2_job_tasks/t1_ingest` | (none) | Auto Loader → bronze; publishes `rows_ingested` as a **task value** |
+# MAGIC | `merge_silver` | `day2_job_tasks/t2_silver_merge` | `ingest_bronze` | MERGE latest changes → silver |
+# MAGIC | `build_gold` | `day2_job_tasks/t3_gold` | `merge_silver` | Rebuild gold revenue |
+# MAGIC | `dq_check` | `day2_job_tasks/t4_dq_check` | `merge_silver` | Fail the run if `booking_id` is not unique |
 # MAGIC
 # MAGIC `build_gold` and `dq_check` run **in parallel** after silver: a task **graph** (DAG), not just a list.
 # MAGIC
@@ -409,7 +409,7 @@ from databricks.sdk.service import jobs
 w = WorkspaceClient()   # authenticates automatically as you, inside a notebook
 
 this_notebook = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()
-TASKS_DIR = this_notebook.rsplit("/", 1)[0] + "/day2_tasks"
+TASKS_DIR = this_notebook.rsplit("/", 1)[0] + "/day2_job_tasks"
 JOB_NAME = f"wb_bookings_pipeline_{USER_SCHEMA}"
 
 def nb(name, **params):

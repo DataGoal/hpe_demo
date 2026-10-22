@@ -3,7 +3,7 @@
 # MAGIC # 02B · Day 2: Deep-Dive Exercises (self-led)
 # MAGIC ### Databricks Catalyst · Ingestion, data-quality gates, job failures & repair
 # MAGIC
-# MAGIC **Time:** 60–90 min · **Prerequisite:** notebook **02A**, and the `day2_tasks/` folder next to this notebook
+# MAGIC **Time:** 60–90 min · **Prerequisite:** notebook **02A**, and the `instructor_led/day_2/day2_job_tasks/` folder (import the whole `notebooks/` folder with its structure intact)
 # MAGIC
 # MAGIC ### Scenario: payment reconciliation and the 2 AM failure
 # MAGIC > **Finance:** *"Booking totals and payments do not add up. We need a reconciliation table that tells us, per booking, whether it is paid, under-paid, over-paid or unpaid."*
@@ -51,6 +51,7 @@ print(f"Source data : {SRC} (read-only)")
 # COMMAND ----------
 
 # Helpers (provided): checks, SDK client, run polling
+import posixpath
 import time
 from pyspark.sql import functions as F
 from databricks.sdk import WorkspaceClient
@@ -58,7 +59,9 @@ from databricks.sdk.service import jobs
 
 w = WorkspaceClient()
 LANDING = f"/Volumes/{CATALOG}/{USER_SCHEMA}/landing"
-TASKS_DIR = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get().rsplit("/", 1)[0] + "/day2_tasks"
+# Task notebooks live in notebooks/instructor_led/day_2/day2_job_tasks (two levels up from this folder)
+THIS_DIR = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get().rsplit("/", 1)[0]
+TASKS_DIR = posixpath.normpath(f"{THIS_DIR}/../../instructor_led/day_2/day2_job_tasks")
 DQ_JOB_NAME = f"wb_payments_dq_{USER_SCHEMA}"
 
 CHECK_RESULTS = {}
