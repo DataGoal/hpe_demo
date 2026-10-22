@@ -1,6 +1,0 @@
-Act as Databricks SME, I have been assigned with tasks to create Databricks demo notebooks for Day1, Day2, and Day 3 training. I am thinking of real world example and scenrios to explain the course content and concepts. For each day I want two Databricks notebooks (1 is covering essential concepts where instructor will cover, and other notebook as additional notebook with deeper exercise for particiapant self-led)
-I am thinking of using the Databricks sample dataset for the demos. I have already put the Databricks connection details in the creds.json file. Connect and explore all tables avaialbe in the schema (samples.wanderbricks), understand it then build the demo notebook. 
-Have one additonal notebook to explain the dataset with data model
-All notebook should have md cells for instructions and steps.
-There are around 60+ participans and each will have their home folder, if any intermediate tables needs to be created as part of the demo it should get create under catalog '`demo-catalog`.`user_name`'
-Read the contents folder for the training decks 
