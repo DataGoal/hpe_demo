@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 00 · Wanderbricks: Dataset & Data Model
 # MAGIC ### Databricks Catalyst · Pre-read for all three days

@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 03A · Day 3: Analyze & Visualize Data
 # MAGIC ### Databricks Catalyst · Instructor-led demo

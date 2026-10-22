@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 01A · Day 1: Explore the Platform, Unity Catalog & Access Control
 # MAGIC ### Databricks Catalyst · Instructor-led demo
@@ -151,8 +155,8 @@ display(spark.sql("SELECT current_version() AS engine_version, current_user() AS
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Discovering data like a pro
-# MAGIC Priya needs **revenue by destination**. Which tables contain money, and which contain *personal data* we must protect?
+# MAGIC ### Discovering data
+# MAGIC User needs **revenue by destination**. Which tables contain money, and which contain *personal data* we must protect?
 # MAGIC The `information_schema` lets us **search metadata with SQL**.
 
 # COMMAND ----------
@@ -233,7 +237,7 @@ display(spark.sql("SELECT current_version() AS engine_version, current_user() AS
 
 # MAGIC %md
 # MAGIC ### 4c. View: share logic, not copies
-# MAGIC Priya only needs **realised revenue** (confirmed + completed) by month and destination. A **view** stores the *query*, not the data, so she always sees fresh numbers.
+# MAGIC User only needs **realised revenue** (confirmed + completed) by month and destination. A **view** stores the *query*, not the data, so user always sees fresh numbers.
 
 # COMMAND ----------
 

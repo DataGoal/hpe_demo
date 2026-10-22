@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 02A · Day 2: Build & Manage Workflows
 # MAGIC ### Databricks Catalyst · Instructor-led demo
