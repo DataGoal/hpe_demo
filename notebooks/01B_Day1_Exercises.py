@@ -5,35 +5,36 @@
 # MAGIC
 # MAGIC **Time:** 60–90 min · **Prerequisite:** run notebook **01A** (or at least its setup cell)
 # MAGIC
-# MAGIC ### 🏢 Scenario: the Host Directory
+# MAGIC ### Scenario: the Host Directory
 # MAGIC > **Trust & Safety** wants a *Host Directory* table: one row per host with portfolio size, staff count and average nightly price.
 # MAGIC > **Legal** has two rules:
 # MAGIC > 1. Contact details (email, phone) must be **masked** for everyone except the `pii_readers` group.
 # MAGIC > 2. The India operations team may see **only Indian hosts**.
 # MAGIC >
-# MAGIC > And yesterday someone accidentally deleted half the table… 😱
+# MAGIC >
+# MAGIC > In addition, a recent accidental deletion must be recovered without restoring from an external backup.
 # MAGIC
 # MAGIC ### How to use this notebook
 # MAGIC Each task has:
-# MAGIC - 📋 **Task**: what the business needs
-# MAGIC - 💡 **Hint**: syntax pointers (expand only if you're stuck)
-# MAGIC - 🎯 **Expected outcome**: so you know you're right
-# MAGIC - ✏️ a **TODO cell** for your code, followed by a ✔️ **check cell** that prints ✅ / ❌
+# MAGIC - **Task**: the business requirement
+# MAGIC - **Hint**: syntax guidance (expand only if needed)
+# MAGIC - **Expected outcome**: the result to verify against
+# MAGIC - A **TODO cell** for your code, followed by a **check cell** that prints PASS or FAIL
 # MAGIC
-# MAGIC **Solutions** are at the very end, so try first! You can write SQL in a TODO cell by starting it with `%sql`.
+# MAGIC **Solutions** are provided at the end of the notebook. Attempt each task before reviewing them. You can write SQL in a TODO cell by starting it with `%sql`.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ⚙️ Setup: your personal sandbox
+# MAGIC ## Setup: user schema
 # MAGIC
 # MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
-# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that isn't a letter, digit or `_` becomes `_`). For example, `jane_doe`.
-# MAGIC 3. Creates the schema **if it doesn't exist**, so the cell is safe to re-run.
-# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** sandbox.
+# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that is not a letter, digit or `_` becomes `_`). For example, `jane_doe`.
+# MAGIC 3. Creates the schema **if it does not exist**, so the cell is safe to re-run.
+# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** schema.
 # MAGIC
 # MAGIC > Source data is read **only** from `samples.wanderbricks`. Never write to `samples` or to anyone else's schema.
 
@@ -47,46 +48,46 @@ SRC = "samples.wanderbricks"
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
 USER_SCHEMA = re.sub(r"[^a-z0-9_]", "_", USER_EMAIL.split("@")[0].lower())
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal sandbox for Databricks Catalyst training'")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal schema for Databricks Catalyst training'")
 spark.sql(f"USE CATALOG `{CATALOG}`")
 spark.sql(f"USE SCHEMA `{USER_SCHEMA}`")
 
-FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified sandbox, handy in f-strings
+FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified user schema name, used in f-strings
 print(f"User        : {USER_EMAIL}")
-print(f"Sandbox     : {FQ}")
+print(f"Schema      : {FQ}")
 print(f"Source data : {SRC} (read-only)")
 
 # COMMAND ----------
 
-# Helper used by every check cell: prints ✅ / ❌ / ⏳ instead of failing the notebook
+# Helper used by every check cell: prints PASS / FAIL / PENDING instead of failing the notebook
 CHECK_RESULTS = {}
 def check(label, fn):
     try:
         ok, detail = fn()
         CHECK_RESULTS[label] = bool(ok)
-        print(("✅ " if ok else "❌ ") + label + (f": {detail}" if detail else ""))
+        print(("[PASS] " if ok else "[FAIL] ") + label + (f": {detail}" if detail else ""))
     except Exception as e:
         CHECK_RESULTS[label] = False
-        print(f"⏳ {label}: not done yet ({type(e).__name__}: {str(e)[:120]})")
+        print(f"[PENDING] {label}: not completed yet ({type(e).__name__}: {str(e)[:120]})")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 1 · Discovery: who references hosts?
-# MAGIC 📋 Before building anything, find **every table in `samples.wanderbricks` that has a `host_id` column**, using `information_schema` (no UI).
+# MAGIC Before building anything, find **every table in `samples.wanderbricks` that has a `host_id` column**, using `information_schema` (no UI).
 # MAGIC Save the result as a view **`v_host_tables`** with a single column `table_name`.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC `samples.information_schema.columns` has `table_schema`, `table_name`, `column_name`. Use `CREATE OR REPLACE VIEW … AS SELECT DISTINCT …`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** 3 tables: `employees`, `hosts`, `properties`.
+# MAGIC **Expected:** 3 tables: `employees`, `hosts`, `properties`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 1
+# TODO Task 1
 
 # COMMAND ----------
 
@@ -99,7 +100,7 @@ check("Task 1 · v_host_tables", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 2 · Build the Host Directory (managed table)
-# MAGIC 📋 Create managed table **`hosts_directory`**, one row per host, with:
+# MAGIC Create managed table **`hosts_directory`**, one row per host, with:
 # MAGIC
 # MAGIC | Column | Logic |
 # MAGIC |---|---|
@@ -110,18 +111,18 @@ check("Task 1 · v_host_tables", lambda: (
 # MAGIC
 # MAGIC Then add a **table comment** and a **column comment** on `property_count`.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC - Aggregate `properties` and `employees` in two sub-queries / CTEs **before** joining to `hosts`, so you avoid a fan-out that multiplies counts.
 # MAGIC - `LEFT JOIN` + `COALESCE(x, 0)` keeps hosts with no properties.
 # MAGIC - `COMMENT ON TABLE t IS '…'` and `ALTER TABLE t ALTER COLUMN c COMMENT '…'`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** 19,384 rows (one per host); the sum of `property_count` = 18,163 (every property).
+# MAGIC **Expected:** 19,384 rows (one per host); the sum of `property_count` = 18,163 (every property).
 
 # COMMAND ----------
 
-# ✏️ TODO Task 2
+# TODO Task 2
 
 # COMMAND ----------
 
@@ -134,13 +135,13 @@ check("Task 2 · hosts_directory", lambda: (
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Task 3 · Oops! Recover with Delta time travel
-# MAGIC 📋 Run the "accident" cell below, which **deletes every host rated below 3**. Then:
+# MAGIC ## Task 3 · Recover from an accidental delete with Delta time travel
+# MAGIC Run the simulated-incident cell below, which **deletes every host rated below 3**. Then:
 # MAGIC 1. Use `DESCRIBE HISTORY` to find the **version before the DELETE**.
 # MAGIC 2. Query that version with `VERSION AS OF` to prove the data is still there.
 # MAGIC 3. **`RESTORE`** the table to that version.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC ```sql
 # MAGIC DESCRIBE HISTORY hosts_directory;
@@ -150,20 +151,20 @@ check("Task 2 · hosts_directory", lambda: (
 # MAGIC In Python you can find `<n>` with `spark.sql("DESCRIBE HISTORY hosts_directory").filter("operation = 'DELETE'")`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** after restore, `hosts_directory` has 19,384 rows again, and `DESCRIBE HISTORY` shows a `RESTORE` operation.
+# MAGIC **Expected:** after restore, `hosts_directory` has 19,384 rows again, and `DESCRIBE HISTORY` shows a `RESTORE` operation.
 
 # COMMAND ----------
 
-# 💥 The accident (run me once, after Task 2)
+# Simulated incident: run this cell once, after completing Task 2
 if spark.catalog.tableExists("hosts_directory"):
     deleted = spark.sql("DELETE FROM hosts_directory WHERE rating < 3").first()[0]
-    print(f"Deleted {deleted} hosts… Trust & Safety is not happy 😬")
+    print(f"Simulated incident: deleted {deleted} hosts")
 else:
     print("Do Task 2 first")
 
 # COMMAND ----------
 
-# ✏️ TODO Task 3
+# TODO Task 3
 
 # COMMAND ----------
 
@@ -177,12 +178,12 @@ check("Task 3 · restored", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 4 · Column masks for PII
-# MAGIC 📋 Legal needs a **secure copy** that anyone can query safely.
+# MAGIC Legal needs a **secure copy** that anyone can query safely.
 # MAGIC 1. Create table **`hosts_directory_secure`** as a copy of `hosts_directory`.
 # MAGIC 2. Create SQL function **`fn_mask_contact(val STRING) RETURNS STRING`** that returns `val` if the user is in account group `pii_readers`, and otherwise `'***'` followed by the last 4 characters (for example, `***4268`).
 # MAGIC 3. Attach it as a **column mask** to both `email` and `phone`.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC ```sql
 # MAGIC ALTER TABLE t ALTER COLUMN email SET MASK fn_mask_contact;
@@ -191,11 +192,11 @@ check("Task 3 · restored", lambda: (
 # MAGIC If you re-run, `DROP TABLE IF EXISTS hosts_directory_secure` first.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** `SELECT email, phone FROM hosts_directory_secure` returns values starting with `***`.
+# MAGIC **Expected:** `SELECT email, phone FROM hosts_directory_secure` returns values starting with `***`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 4
+# TODO Task 4
 
 # COMMAND ----------
 
@@ -208,10 +209,10 @@ check("Task 4 · column masks", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 5 · Row filter for regional access
-# MAGIC 📋 Create function **`fn_host_region(country STRING) RETURNS BOOLEAN`** that returns `TRUE` when the user is in group `catalyst_admins` **or** the row's country is `'India'`.
+# MAGIC Create function **`fn_host_region(country STRING) RETURNS BOOLEAN`** that returns `TRUE` when the user is in group `catalyst_admins` **or** the row's country is `'India'`.
 # MAGIC Attach it as a **row filter** on `hosts_directory_secure` (column `country`).
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC ```sql
 # MAGIC ALTER TABLE t SET ROW FILTER fn_host_region ON (country);
@@ -219,11 +220,11 @@ check("Task 4 · column masks", lambda: (
 # MAGIC Row filters apply to the **owner too**, so you will now see fewer rows yourself.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** `SELECT COUNT(*) FROM hosts_directory_secure` = **7,149** (Indian hosts only), assuming nothing was deleted, because the copy was taken *after* the restore.
+# MAGIC **Expected:** `SELECT COUNT(*) FROM hosts_directory_secure` = **7,149** (Indian hosts only), assuming nothing was deleted, because the copy was taken *after* the restore.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 5
+# TODO Task 5
 
 # COMMAND ----------
 
@@ -236,19 +237,19 @@ check("Task 5 · row filter", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 6 · Grant, verify, revoke
-# MAGIC 📋 Give everyone (`account users`) read access to **`hosts_directory_secure` only** (not `hosts_directory`). Show the grants, save them to a table **`grant_audit`** for your records, then **revoke** them.
+# MAGIC Give everyone (`account users`) read access to **`hosts_directory_secure` only** (not `hosts_directory`). Show the grants, save them to a table **`grant_audit`** for your records, then **revoke** them.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC Access needs `USE SCHEMA` on your schema **and** `SELECT` on the table. Schema-level statements need the full name, so use the Python variable `FQ` in an f-string: `spark.sql(f"GRANT USE SCHEMA ON SCHEMA {FQ} TO `account users`")`.
 # MAGIC `spark.sql("SHOW GRANTS ON TABLE …")` returns a DataFrame that you can `.write.saveAsTable()`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** `grant_audit` contains a row with principal `account users` and action `SELECT`; after the revoke, `SHOW GRANTS` no longer lists it.
+# MAGIC **Expected:** `grant_audit` contains a row with principal `account users` and action `SELECT`; after the revoke, `SHOW GRANTS` no longer lists it.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 6
+# TODO Task 6
 
 # COMMAND ----------
 
@@ -262,21 +263,21 @@ check("Task 6 · grant audit + revoke", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 7 · Clone, drop and UNDROP
-# MAGIC 📋 Before a risky change, the team makes a backup.
+# MAGIC Before a risky change, the team makes a backup.
 # MAGIC 1. Create **`hosts_backup`** as a **DEEP CLONE** of `hosts_directory`.
 # MAGIC 2. Inspect it with `DESCRIBE DETAIL`: is it managed, and where are its files?
 # MAGIC 3. `DROP` it… then bring it back with **`UNDROP`**.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC `CREATE OR REPLACE TABLE hosts_backup DEEP CLONE hosts_directory;` then `DROP TABLE hosts_backup;` then `UNDROP TABLE hosts_backup;`. UNDROP works for **managed** tables within 7 days.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** `hosts_backup` exists with 19,384 rows after `UNDROP`.
+# MAGIC **Expected:** `hosts_backup` exists with 19,384 rows after `UNDROP`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 7
+# TODO Task 7
 
 # COMMAND ----------
 
@@ -286,7 +287,7 @@ check("Task 7 · undrop", lambda: (spark.table("hosts_backup").count() == 19384,
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## 🧠 Reflection questions
+# MAGIC ## Reflection questions
 # MAGIC 1. In Task 2, what would go wrong if you joined `hosts → properties → employees` in one step and then counted?
 # MAGIC 2. Column mask vs dynamic view: when would you choose each?
 # MAGIC 3. Why did the row filter also hide rows from **you**, the owner?
@@ -295,8 +296,8 @@ check("Task 7 · undrop", lambda: (spark.table("hosts_backup").count() == 19384,
 # MAGIC
 # MAGIC ---
 # MAGIC ---
-# MAGIC # 🔑 Solutions
-# MAGIC > ⚠️ **Stop here if you haven't attempted the tasks.** The cells below solve everything; run them to compare with your work.
+# MAGIC # Solutions
+# MAGIC > **Note:** Attempt the tasks before reviewing this section. The cells below contain complete solutions for comparison.
 
 # COMMAND ----------
 
@@ -354,7 +355,7 @@ check("Task 7 · undrop", lambda: (spark.table("hosts_backup").count() == 19384,
 
 # MAGIC %md
 # MAGIC ### Solution 3
-# MAGIC Run the 💥 accident cell (above, or the one below), then restore.
+# MAGIC The first cell below replays the simulated incident so the solution is self-contained; the second restores the table.
 
 # COMMAND ----------
 
@@ -459,13 +460,13 @@ display(spark.sql(f"SHOW GRANTS ON TABLE {FQ}.hosts_directory_secure"))
 # MAGIC 4. Time travel is limited by data retention: `delta.deletedFileRetentionDuration` (default 7 days) and `VACUUM`. The log is kept for 30 days by default.
 # MAGIC 5. They get `PERMISSION_DENIED` (USE SCHEMA is required to "enter" the schema).
 # MAGIC
-# MAGIC ### ✔️ Re-run all checks
+# MAGIC ### Re-run all checks
 
 # COMMAND ----------
 
 dbutils.widgets.dropdown("validate", "no", ["no", "yes"], "Fail notebook if a check fails?")
 for label, ok in CHECK_RESULTS.items():
-    print(("✅ " if ok else "❌ ") + label)
+    print(("[PASS] " if ok else "[FAIL] ") + label)
 check("Task 1 · v_host_tables", lambda: (spark.table("v_host_tables").count() == 3, None))
 check("Task 2 · hosts_directory", lambda: (spark.sql("SELECT SUM(property_count) FROM hosts_directory").first()[0] == 18163, None))
 check("Task 3 · restored", lambda: (spark.table("hosts_directory").count() == 19384, None))
@@ -481,7 +482,7 @@ if dbutils.widgets.get("validate") == "yes":
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## 🧹 Cleanup (optional)
+# MAGIC ## Cleanup (optional)
 
 # COMMAND ----------
 
@@ -495,6 +496,6 @@ if dbutils.widgets.get("cleanup") == "yes":
                  "DROP FUNCTION IF EXISTS fn_mask_contact",
                  "DROP FUNCTION IF EXISTS fn_host_region"]:
         spark.sql(stmt)
-        print("✔", stmt)
+        print("Executed:", stmt)
 else:
     print("Cleanup skipped (set widget 'cleanup' = yes to drop Day 1B objects)")

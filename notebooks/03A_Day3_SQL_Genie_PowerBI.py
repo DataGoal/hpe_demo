@@ -9,7 +9,7 @@
 # MAGIC | 3.2 | Genie spaces: natural-language analytics, prompt curation, AI-assisted SQL | §5 |
 # MAGIC | 3.3 | Power BI connectivity: DirectQuery vs Import | §6 |
 # MAGIC
-# MAGIC ### 🎯 Learning objectives
+# MAGIC ### Learning objectives
 # MAGIC - Choose and configure a **SQL warehouse** (serverless vs pro vs classic, size, scaling, auto-stop)
 # MAGIC - Model a **gold star schema** that BI tools and Genie understand: keys, constraints, comments
 # MAGIC - Write **analytical SQL**: window functions, `QUALIFY`, `ROLLUP`, `PIVOT`
@@ -18,22 +18,22 @@
 # MAGIC - Set up a **Genie space** with good instructions and trusted SQL
 # MAGIC - Connect **Power BI** in the right storage mode
 # MAGIC
-# MAGIC ### 🏢 Today's scenario
+# MAGIC ### Today's scenario
 # MAGIC > *"The leadership offsite is next week. I want a **revenue & host performance** dashboard in Power BI, and my regional managers should be able to **just ask questions** like 'Which destinations had the most cancellations last quarter?' without filing a ticket."*
 # MAGIC > *VP Commercial, Wanderbricks*
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ⚙️ Setup: your personal sandbox
+# MAGIC ## Setup: user schema
 # MAGIC
 # MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
-# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that isn't a letter, digit or `_` becomes `_`). For example, `jane_doe`.
-# MAGIC 3. Creates the schema **if it doesn't exist**, so the cell is safe to re-run.
-# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** sandbox.
+# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that is not a letter, digit or `_` becomes `_`). For example, `jane_doe`.
+# MAGIC 3. Creates the schema **if it does not exist**, so the cell is safe to re-run.
+# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** schema.
 # MAGIC
 # MAGIC > Source data is read **only** from `samples.wanderbricks`. Never write to `samples` or to anyone else's schema.
 
@@ -47,13 +47,13 @@ SRC = "samples.wanderbricks"
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
 USER_SCHEMA = re.sub(r"[^a-z0-9_]", "_", USER_EMAIL.split("@")[0].lower())
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal sandbox for Databricks Catalyst training'")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal schema for Databricks Catalyst training'")
 spark.sql(f"USE CATALOG `{CATALOG}`")
 spark.sql(f"USE SCHEMA `{USER_SCHEMA}`")
 
-FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified sandbox, handy in f-strings
+FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified user schema name, used in f-strings
 print(f"User        : {USER_EMAIL}")
-print(f"Sandbox     : {FQ}")
+print(f"Schema      : {FQ}")
 print(f"Source data : {SRC} (read-only)")
 
 # COMMAND ----------
@@ -66,7 +66,7 @@ print(f"Source data : {SRC} (read-only)")
 # MAGIC
 # MAGIC | Type | Start-up | Features | When to use |
 # MAGIC |---|---|---|---|
-# MAGIC | **Serverless** ✅ recommended | ~5 s | Photon, Intelligent Workload Management, Predictive IO, auto-scaling | Almost always: BI, Genie, ad-hoc |
+# MAGIC | **Serverless** (recommended) | ~5 s | Photon, Intelligent Workload Management, Predictive IO, auto-scaling | Almost always: BI, Genie, ad-hoc |
 # MAGIC | **Pro** | minutes | Photon, Predictive IO; runs in *your* cloud account | Networking constraints rule out serverless |
 # MAGIC | **Classic** | minutes | Photon, basic | Legacy / lowest feature set |
 # MAGIC
@@ -75,14 +75,14 @@ print(f"Source data : {SRC} (read-only)")
 # MAGIC |---|---|---|
 # MAGIC | **Cluster size** (2X-Small … 4X-Large) | Compute per cluster: bigger = faster *individual* queries | Small |
 # MAGIC | **Scaling** (min / max clusters) | More clusters = more *concurrent* users | 1 – 3 |
-# MAGIC | **Auto stop** | Stop after N idle minutes, so you don't pay when idle | 10 min |
+# MAGIC | **Auto stop** | Stop after N idle minutes, so you do not pay when idle | 10 min |
 # MAGIC | **Channel** | Current vs Preview features | Current |
 # MAGIC
-# MAGIC 🖱️ **SQL editor tour** (sidebar → **SQL Editor**)
+# MAGIC **SQL editor tour** (sidebar → **SQL Editor**)
 # MAGIC 1. Pick a **warehouse** (top right) and the catalog/schema (`demo-catalog` → your schema).
 # MAGIC 2. Write a query; **Cmd/Ctrl + Enter** runs the statement under the cursor.
 # MAGIC 3. **Save** → it becomes a **saved query** (sidebar → *Queries*) that you can share, schedule, or use in a dashboard or alert.
-# MAGIC 4. Click the ✨ **Assistant** and ask: *"Show monthly revenue by continent for 2025"*.
+# MAGIC 4. Open the **Assistant** and ask: *"Show monthly revenue by continent for 2025"*.
 # MAGIC 5. Results pane → **+ Visualization** for a quick chart.
 # MAGIC
 # MAGIC ---
@@ -210,10 +210,10 @@ print(f"Source data : {SRC} (read-only)")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 💡 **Visualise it:** click **+** above the result → *Visualization* → Line chart, X = `year_month`, Y = `revenue`, Group by = `continent`.
+# MAGIC **Visualise it:** click **+** above the result → *Visualization* → Line chart, X = `year_month`, Y = `revenue`, Group by = `continent`.
 # MAGIC
 # MAGIC ### 3b. Top 3 properties per destination (`QUALIFY`)
-# MAGIC `QUALIFY` filters on a window function, so you don't need a sub-query.
+# MAGIC `QUALIFY` filters on a window function, so you do not need a sub-query.
 
 # COMMAND ----------
 
@@ -237,8 +237,8 @@ print(f"Source data : {SRC} (read-only)")
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT COALESCE(p.continent, '🌍 ALL')            AS continent,
-# MAGIC        COALESCE(p.destination, 'Σ subtotal')       AS destination,
+# MAGIC SELECT COALESCE(p.continent, 'ALL')            AS continent,
+# MAGIC        COALESCE(p.destination, 'Subtotal')       AS destination,
 # MAGIC        COUNT(*)                                    AS bookings,
 # MAGIC        SUM(f.total_amount)                         AS revenue
 # MAGIC FROM fact_bookings f
@@ -326,7 +326,7 @@ print("Metric view mv_booking_metrics created")
 # MAGIC %md
 # MAGIC ---
 # MAGIC ### Query history: who ran what, and how fast?
-# MAGIC 🖱️ Sidebar → **Query History**: filter by user, warehouse, status and duration. Click a query → **Query profile** to see where time went (scan, join, shuffle), rows read, and whether the result came from **cache**.
+# MAGIC Sidebar → **Query History**: filter by user, warehouse, status and duration. Click a query → **Query profile** to see where time went (scan, join, shuffle), rows read, and whether the result came from **cache**.
 # MAGIC
 # MAGIC The same data is in a system table, if your admin granted access:
 
@@ -347,7 +347,7 @@ except Exception as e:
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## 5. Genie spaces: talk to your data (Module 3.2)
+# MAGIC ## 5. Genie spaces: natural-language analytics (Module 3.2)
 # MAGIC
 # MAGIC A **Genie space** lets business users ask questions in plain English. Genie writes the SQL using your **tables, comments, keys, instructions and example queries**, and runs it on a SQL warehouse. Users only ever see data they have permissions for.
 # MAGIC
@@ -370,7 +370,7 @@ except Exception as e:
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- ⭐ Example "trusted" SQL to give Genie for: "What are the top 5 destinations by revenue in 2025?"
+# MAGIC -- Example trusted SQL to give Genie for: "What are the top 5 destinations by revenue in 2025?"
 # MAGIC SELECT p.destination, ROUND(SUM(f.total_amount), 0) AS revenue
 # MAGIC FROM fact_bookings f
 # MAGIC JOIN dim_property p ON f.property_id = p.property_id
@@ -390,11 +390,11 @@ except Exception as e:
 # MAGIC | *Show monthly bookings for business vs individual guests in 2025 as a line chart* | Joins `dim_user`, produces a chart |
 # MAGIC | *Who are the top 10 hosts in Asia by revenue?* | Joins `dim_property`, filters `continent = 'Asia'` |
 # MAGIC | *What was revenue last quarter?* | Applies the "relative to 2025-07-31" instruction |
-# MAGIC | *What's the email of the top guest?* | Can't answer: PII isn't in the model ✅ |
+# MAGIC | *What is the email of the top guest?* | Declines to answer, because PII is not in the model (expected behaviour) |
 # MAGIC
 # MAGIC ### 5c. Prompt curation loop
 # MAGIC 1. Ask → **Show code** to read the generated SQL. Is it right?
-# MAGIC 2. Wrong? 👎 → add an **instruction**, a **column comment**, or a **trusted SQL** example. Don't just rephrase the question.
+# MAGIC 2. If the answer is incorrect, add an **instruction**, a **column comment**, or a **trusted SQL** example rather than rephrasing the question.
 # MAGIC 3. Use **Benchmarks** (*Configure → Benchmarks*) to save questions with expected SQL, and re-run them after every change.
 # MAGIC 4. **Share** the space with the regional managers' group (they need `SELECT` on the tables + `CAN USE` on the warehouse).
 # MAGIC
@@ -426,17 +426,17 @@ except Exception as e:
 # MAGIC 5. Navigator → `demo-catalog` → your schema → select the star-schema tables → **Load**.
 # MAGIC 6. Model view: the relationships come from the FK constraints. Set dims to **Dual** and the fact to **DirectQuery** for a composite model.
 # MAGIC
-# MAGIC > The Azure Databricks connector ships inside Power BI (ADBC-based), so there's no ODBC driver to install. That's the "zero-driver" experience.
+# MAGIC > The Azure Databricks connector ships inside Power BI (ADBC-based), so there is no ODBC driver to install. That is the "zero-driver" experience.
 # MAGIC
 # MAGIC ### 6d. Performance checklist for DirectQuery
 # MAGIC - Use a **serverless** warehouse sized for concurrency (scale *out* with max clusters).
-# MAGIC - Model as a **star schema** with keys (done ✅); avoid wide flat tables.
+# MAGIC - Model as a **star schema** with keys (completed in Section 2); avoid wide flat tables.
 # MAGIC - Pre-aggregate heavy visuals into gold tables or use the **metric view**.
 # MAGIC - Enable **"Assume referential integrity"** on relationships, which gives inner joins and faster SQL.
 # MAGIC - Check **Query History**: every Power BI visual shows up there with its duration.
 # MAGIC
 # MAGIC ---
-# MAGIC ## ✅ Day 3 recap
+# MAGIC ## Day 3 recap
 # MAGIC | You did | Concept |
 # MAGIC |---|---|
 # MAGIC | Compared warehouse types & settings | SQL warehouses |
@@ -447,7 +447,7 @@ except Exception as e:
 # MAGIC | Genie instructions, trusted SQL, benchmarks | Natural-language analytics |
 # MAGIC | Import vs DirectQuery vs composite | Power BI connectivity |
 # MAGIC
-# MAGIC ### 🧠 Capstone warm-up
+# MAGIC ### Capstone review questions
 # MAGIC 1. 200 analysts hit the dashboard at 9 AM and queries queue up. Which warehouse setting do you change?
 # MAGIC 2. Genie keeps calling *gross* bookings "revenue". What are two ways to fix that?
 # MAGIC 3. Finance needs numbers that are correct to the minute, and the fact table has 2 billion rows. Import or DirectQuery?
@@ -458,12 +458,12 @@ except Exception as e:
 # MAGIC 1. Increase **max clusters** (scale out for concurrency). A bigger size only speeds up individual queries.
 # MAGIC 2. Add an **instruction** that defines revenue, add a **column comment** on `is_realised`, add a **trusted SQL** example, or point Genie at the **metric view**.
 # MAGIC 3. **DirectQuery** (or composite with the fact table in DirectQuery).
-# MAGIC 4. Data minimisation: BI and Genie users shouldn't be able to reach PII they don't need.
+# MAGIC 4. Data minimisation: BI and Genie users should not be able to reach PII they do not need.
 # MAGIC </details>
 # MAGIC
 # MAGIC ---
-# MAGIC ## 🧹 Cleanup (optional)
-# MAGIC Keep these if you're doing **03B** (it adds to the same star schema).
+# MAGIC ## Cleanup (optional)
+# MAGIC Keep these if you are doing **03B** (it adds to the same star schema).
 
 # COMMAND ----------
 
@@ -472,6 +472,6 @@ if dbutils.widgets.get("cleanup") == "yes":
     for stmt in ["DROP VIEW IF EXISTS mv_booking_metrics", "DROP TABLE IF EXISTS fact_bookings",
                  "DROP TABLE IF EXISTS dim_property", "DROP TABLE IF EXISTS dim_user", "DROP TABLE IF EXISTS dim_date"]:
         spark.sql(stmt)
-        print("✔", stmt)
+        print("Executed:", stmt)
 else:
     print("Cleanup skipped (set widget 'cleanup' = yes to drop Day 3 objects)")

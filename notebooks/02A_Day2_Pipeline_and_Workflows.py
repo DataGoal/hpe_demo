@@ -9,34 +9,34 @@
 # MAGIC | 2.1 · Part 2 | Ingestion, medallion pipeline, workflow task graphs, schedules, parameters | §2–§7 |
 # MAGIC | 2.2 | Workflow monitoring & troubleshooting: runs, logs, stack traces, repair | §8–§9 |
 # MAGIC
-# MAGIC ### 🎯 Learning objectives
+# MAGIC ### Learning objectives
 # MAGIC - Author a **multi-language notebook** with **widgets**, and use the **Assistant** to explain, document and fix code
 # MAGIC - Ingest files with the three methods from the deck: **CTAS + `read_files`**, **`COPY INTO`**, **Auto Loader**
 # MAGIC - Build a **bronze → silver → gold** medallion pipeline with an idempotent **MERGE**
 # MAGIC - Turn notebooks into a **parameterised, scheduled job** with a **task graph**
 # MAGIC - **Monitor** runs, read a **stack trace**, and **repair** a failed run
 # MAGIC
-# MAGIC ### 🏢 Today's scenario
+# MAGIC ### Today's scenario
 # MAGIC > *"Every night our booking platform drops a JSON file with all booking **changes** (new bookings, confirmations, cancellations) into cloud storage. Today an analyst runs scripts by hand. Build us a **reliable nightly pipeline** that keeps a clean bookings table and a revenue table up to date, and make sure we know when it breaks."*
 # MAGIC > *Head of Data Engineering, Wanderbricks*
 # MAGIC
 # MAGIC ```
-# MAGIC  landing volume (JSON files)  ──Auto Loader──▶  🥉 bronze_booking_updates  ──MERGE──▶  🥈 silver_bookings  ──▶  🥇 gold_daily_revenue
-# MAGIC                                                                                               └──▶  ✅ dq_check
+# MAGIC  landing volume (JSON files)  ──Auto Loader──▶  bronze_booking_updates  ──MERGE──▶  silver_bookings  ──▶  gold_daily_revenue
+# MAGIC                                                                                               └──▶  dq_check
 # MAGIC ```
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ⚙️ Setup: your personal sandbox
+# MAGIC ## Setup: user schema
 # MAGIC
 # MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
-# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that isn't a letter, digit or `_` becomes `_`). For example, `jane_doe`.
-# MAGIC 3. Creates the schema **if it doesn't exist**, so the cell is safe to re-run.
-# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** sandbox.
+# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that is not a letter, digit or `_` becomes `_`). For example, `jane_doe`.
+# MAGIC 3. Creates the schema **if it does not exist**, so the cell is safe to re-run.
+# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** schema.
 # MAGIC
 # MAGIC > Source data is read **only** from `samples.wanderbricks`. Never write to `samples` or to anyone else's schema.
 
@@ -50,13 +50,13 @@ SRC = "samples.wanderbricks"
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
 USER_SCHEMA = re.sub(r"[^a-z0-9_]", "_", USER_EMAIL.split("@")[0].lower())
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal sandbox for Databricks Catalyst training'")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal schema for Databricks Catalyst training'")
 spark.sql(f"USE CATALOG `{CATALOG}`")
 spark.sql(f"USE SCHEMA `{USER_SCHEMA}`")
 
-FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified sandbox, handy in f-strings
+FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified user schema name, used in f-strings
 print(f"User        : {USER_EMAIL}")
-print(f"Sandbox     : {FQ}")
+print(f"Schema      : {FQ}")
 print(f"Source data : {SRC} (read-only)")
 
 # COMMAND ----------
@@ -111,7 +111,7 @@ print("Cancelled bookings:", df.first()["bookings"])
 
 # MAGIC %md
 # MAGIC ### 1c. Databricks Assistant (in-notebook AI)
-# MAGIC Open the Assistant with the ✨ icon in a cell, or press **Cmd/Ctrl + I** in a cell. Useful slash commands:
+# MAGIC Open the Assistant with the Assistant icon in a cell, or press **Cmd/Ctrl + I** in a cell. Useful slash commands:
 # MAGIC
 # MAGIC | Command | What it does | Try it on… |
 # MAGIC |---|---|---|
@@ -121,13 +121,13 @@ print("Cancelled bookings:", df.first()["bookings"])
 # MAGIC | `/optimize` | Suggests performance improvements | Any heavy query |
 # MAGIC | *Free text* | e.g. "Write SQL for revenue by month for cancelled vs completed bookings" | An empty cell |
 # MAGIC
-# MAGIC 🛠️ **Instructor demo:** set the widget `demo_errors = yes`, run the next cell, and click **"Diagnose error"** / type `/fix`.
-# MAGIC The cell has **two bugs** (a wrong column name and a type issue). Watch the Assistant find them.
+# MAGIC **Instructor demonstration:** set the widget `demo_errors = yes`, run the next cell, and click **"Diagnose error"** / type `/fix`.
+# MAGIC The cell contains **two defects** (an incorrect column name and a type mismatch). The Assistant should identify both.
 
 # COMMAND ----------
 
 if dbutils.widgets.get("demo_errors") == "yes":
-    # 🐞 Deliberately broken: two bugs for the Assistant to /fix
+    # Deliberately broken: two defects for the Assistant to /fix
     nights = (spark.table(f"{SRC}.bookings")
                    .withColumn("nights", F.datediff("check_out", "checkin"))       # bug 1: column is check_in
                    .filter(F.col("nights") > "seven"))                            # bug 2: comparing int to text
@@ -192,9 +192,9 @@ display(spark.sql(f"LIST '{LANDING}/booking_updates'"))
 # MAGIC
 # MAGIC | Method | Type | Re-reads old files? | Best for |
 # MAGIC |---|---|---|---|
-# MAGIC | **CTAS + `read_files`** | Batch | ✅ every time (full reload) | One-off loads, small reference data |
-# MAGIC | **`COPY INTO`** | Incremental batch (SQL) | ❌ skips loaded files | Scheduled SQL loads, thousands of files |
-# MAGIC | **Auto Loader** (`cloudFiles`) | Incremental batch **or** streaming | ❌ checkpoint tracks files | Millions of files, schema evolution, production |
+# MAGIC | **CTAS + `read_files`** | Batch | Yes, every time (full reload) | One-off loads, small reference data |
+# MAGIC | **`COPY INTO`** | Incremental batch (SQL) | No, skips loaded files | Scheduled SQL loads, thousands of files |
+# MAGIC | **Auto Loader** (`cloudFiles`) | Incremental batch **or** streaming | No, the checkpoint tracks files | Millions of files, schema evolution, production |
 # MAGIC
 # MAGIC ### Method 1: CTAS + `read_files` (batch)
 
@@ -213,7 +213,7 @@ display(spark.sql("SELECT source_file, COUNT(*) AS rows FROM bronze_bu_ctas GROU
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 👆 Simple, but every run **re-reads every file**. With 3 years of nightly files, that becomes slow and expensive.
+# MAGIC This approach is simple, but every run **re-reads every file**. With three years of nightly files, it becomes slow and expensive.
 # MAGIC
 # MAGIC ### Method 2: `COPY INTO` (incremental, idempotent)
 # MAGIC `COPY INTO` remembers which files it has loaded, so re-running it is safe.
@@ -286,7 +286,7 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC > 💡 The same ingestion in **Lakeflow Declarative Pipelines** is one SQL statement:
+# MAGIC > The same ingestion in **Lakeflow Declarative Pipelines** is one SQL statement:
 # MAGIC > ```sql
 # MAGIC > CREATE OR REFRESH STREAMING TABLE bronze_booking_updates
 # MAGIC > SCHEDULE EVERY 1 HOUR
@@ -294,12 +294,12 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 # MAGIC > ```
 # MAGIC
 # MAGIC ---
-# MAGIC ## 4. 🥈 Silver: apply the changes with MERGE
+# MAGIC ## 4. Silver: apply the changes with MERGE
 # MAGIC Bronze holds **every change** (several rows per booking). Silver must hold the **current state**: one row per booking.
 # MAGIC
 # MAGIC 1. Seed silver from today's bookings snapshot.
 # MAGIC 2. Keep only the **latest change per booking** (`QUALIFY ROW_NUMBER() … = 1`).
-# MAGIC 3. **MERGE**: update if the change is newer; insert if the booking is new (the 47 "orphan" updates from notebook 00!).
+# MAGIC 3. **MERGE**: update if the change is newer; insert if the booking is new (this covers the 47 orphan updates identified in notebook 00).
 
 # COMMAND ----------
 
@@ -332,7 +332,7 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 👀 The output shows `num_updated_rows` and `num_inserted_rows`. Run the MERGE cell **again**: it reports 0 updates, because the same data produces the same result. That is **idempotency**, the most important property of a pipeline step.
+# MAGIC The output shows `num_updated_rows` and `num_inserted_rows`. Run the MERGE cell **again**: it reports 0 updates, because the same data produces the same result. That is **idempotency**, the most important property of a pipeline step.
 
 # COMMAND ----------
 
@@ -350,7 +350,7 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## 5. 🥇 Gold: business-level aggregate
+# MAGIC ## 5. Gold: business-level aggregate
 # MAGIC Finance's daily revenue table, built from silver.
 
 # COMMAND ----------
@@ -376,7 +376,7 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC > 💡 `:run_date` reads the **widget** directly in SQL, so SQL cells are parameterised too.
+# MAGIC > `:run_date` reads the **widget** directly in SQL, so SQL cells are parameterised too.
 # MAGIC
 # MAGIC ---
 # MAGIC ## 6. From notebook to production job (Module 2.1 · Part 2)
@@ -393,9 +393,9 @@ print("Rows ingested on re-run:", run_auto_loader())   # 0: the checkpoint remem
 # MAGIC `build_gold` and `dq_check` run **in parallel** after silver: a task **graph** (DAG), not just a list.
 # MAGIC
 # MAGIC **Job parameters:** `catalog`, `schema`, `run_date`, passed to every task as widgets.
-# MAGIC **Schedule:** daily at 02:00 IST, created **paused** so 60 participants don't all trigger it.
+# MAGIC **Schedule:** daily at 02:00 IST, created **paused** so 60 participants do not all trigger it.
 # MAGIC
-# MAGIC 🖱️ You can build the same thing in the UI: **Jobs & Pipelines → Create → Job → + Add task**. Here we use the **Databricks SDK** (pre-installed on serverless) so it is repeatable, which is the "jobs as code" practice.
+# MAGIC You can build the same thing in the UI: **Jobs & Pipelines → Create → Job → + Add task**. Here we use the **Databricks SDK** (pre-installed on serverless) so it is repeatable, which is the "jobs as code" practice.
 
 # COMMAND ----------
 
@@ -443,12 +443,12 @@ else:
     JOB_ID = w.jobs.create(**job_spec).job_id
 
 print(f"Job '{JOB_NAME}' id={JOB_ID}")
-displayHTML(f'<a href="/jobs/{JOB_ID}" target="_blank">🔗 Open the job in the Jobs UI</a>')
+displayHTML(f'<a href="/jobs/{JOB_ID}" target="_blank">Open the job in the Jobs UI</a>')
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 🖱️ **Open the job** and look at the **Tasks** tab: you'll see the graph `ingest_bronze → merge_silver → (build_gold ‖ dq_check)`, the **Schedule & triggers** panel (paused), and **Parameters**.
+# MAGIC **Open the job** and look at the **Tasks** tab: you will see the graph `ingest_bronze → merge_silver → (build_gold ‖ dq_check)`, the **Schedule & triggers** panel (paused), and **Parameters**.
 # MAGIC
 # MAGIC ---
 # MAGIC ## 7. Run the job
@@ -477,7 +477,7 @@ def summarize(run):
 
 print("Landed", drop_batch(5))
 run_id = w.jobs.run_now(job_id=JOB_ID).run_id
-displayHTML(f'<a href="/jobs/{JOB_ID}/runs/{run_id}" target="_blank">🔗 Watch run {run_id} live</a>')
+displayHTML(f'<a href="/jobs/{JOB_ID}/runs/{run_id}" target="_blank">View run {run_id}</a>')
 run = wait_for_run(run_id)
 print("Run result:", run.state.result_state)
 summarize(run)
@@ -500,7 +500,7 @@ assert run.state.result_state.value == "SUCCESS", "Job run failed: open the run 
 # MAGIC ---
 # MAGIC ## 8. Monitoring runs (Module 2.2)
 # MAGIC
-# MAGIC 🖱️ **Where to look in the UI**
+# MAGIC **Where to look in the UI**
 # MAGIC | Screen | What you learn |
 # MAGIC |---|---|
 # MAGIC | **Jobs & Pipelines → your job → Runs** | Matrix of runs × tasks, coloured by status, with durations: spot slow or flaky tasks |
@@ -524,7 +524,7 @@ display(spark.createDataFrame(history, "run_id long, result string, trigger stri
 # MAGIC ---
 # MAGIC ## 9. Troubleshooting: break it, read the trace, repair it
 # MAGIC
-# MAGIC A teammate triggers a backfill with a **typo** in the run date: `2025-13-01`. Let's see what happens.
+# MAGIC A teammate triggers a backfill with a **typo** in the run date: `2025-13-01`. The following cells show how the job responds.
 
 # COMMAND ----------
 
@@ -545,7 +545,7 @@ summarize(bad_run)
 
 failed_task = next(t for t in bad_run.tasks if t.state.result_state.value == "FAILED")
 out = w.jobs.get_run_output(failed_task.run_id)
-print("❌ Error:", out.error)
+print("Error:", out.error)
 print("\n--- last lines of the stack trace ---")
 print("\n".join((out.error_trace or "").strip().splitlines()[-8:]))
 
@@ -566,7 +566,7 @@ print("\n".join((out.error_trace or "").strip().splitlines()[-8:]))
 # MAGIC | `CAST_INVALID_INPUT` | Bad data or parameter type |
 # MAGIC
 # MAGIC ### Repair the run
-# MAGIC **Repair run** re-executes **only the failed and skipped tasks**, optionally with corrected parameters. Successful tasks aren't re-run, which saves time and cost on big pipelines.
+# MAGIC **Repair run** re-executes **only the failed and skipped tasks**, optionally with corrected parameters. Successful tasks are not re-run, which saves time and cost on big pipelines.
 
 # COMMAND ----------
 
@@ -580,10 +580,10 @@ summarize(repaired)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 🖱️ In the UI, the run now shows **two attempts**, the original and the repair, under the same run.
+# MAGIC In the UI, the run now shows **two attempts**, the original and the repair, under the same run.
 # MAGIC
 # MAGIC ---
-# MAGIC ## ✅ Day 2 recap
+# MAGIC ## Day 2 recap
 # MAGIC | You did | Concept |
 # MAGIC |---|---|
 # MAGIC | Widgets, `%sql`/`%py`/`%md`, temp views, `:param` in SQL | Notebook authoring |
@@ -593,11 +593,11 @@ summarize(repaired)
 # MAGIC | SDK-defined job with a DAG, parameters, paused schedule | Workflows / Lakeflow Jobs |
 # MAGIC | Run history, error + stack trace, repair run | Monitoring & troubleshooting |
 # MAGIC
-# MAGIC ### 🧠 Knowledge check
+# MAGIC ### Knowledge check
 # MAGIC 1. Which ingestion method would you choose for 2 million new files per day, and why?
 # MAGIC 2. What makes the MERGE step idempotent?
 # MAGIC 3. Why did `build_gold` not run when `ingest_bronze` failed?
-# MAGIC 4. What's the difference between **Run now** again and **Repair run**?
+# MAGIC 4. What is the difference between **Run now** again and **Repair run**?
 # MAGIC
 # MAGIC <details><summary>Answers</summary>
 # MAGIC
@@ -608,8 +608,8 @@ summarize(repaired)
 # MAGIC </details>
 # MAGIC
 # MAGIC ---
-# MAGIC ## 🧹 Cleanup (optional)
-# MAGIC Deletes the job, the landing volume and the Day 2 tables. **Keep them if you're doing 02B or 03A** (03A reads `silver_bookings`).
+# MAGIC ## Cleanup (optional)
+# MAGIC Deletes the job, the landing volume and the Day 2 tables. **Keep them if you are doing 02B or 03A** (03A reads `silver_bookings`).
 
 # COMMAND ----------
 
@@ -617,12 +617,12 @@ dbutils.widgets.dropdown("cleanup", "no", ["no", "yes"], "Drop objects created h
 if dbutils.widgets.get("cleanup") == "yes":
     for j in w.jobs.list(name=JOB_NAME):
         w.jobs.delete(j.job_id)
-        print("✔ deleted job", j.job_id)
+        print("Deleted job:", j.job_id)
     for stmt in ["DROP TABLE IF EXISTS bronze_bu_ctas", "DROP TABLE IF EXISTS bronze_bu_copy_into",
                  "DROP TABLE IF EXISTS bronze_booking_updates", "DROP TABLE IF EXISTS silver_bookings",
                  "DROP TABLE IF EXISTS gold_daily_revenue", "DROP TABLE IF EXISTS stg_booking_update_batches",
                  "DROP TABLE IF EXISTS dq_results", "DROP VOLUME IF EXISTS landing"]:
         spark.sql(stmt)
-        print("✔", stmt)
+        print("Executed:", stmt)
 else:
     print("Cleanup skipped (set widget 'cleanup' = yes to drop Day 2 objects and the job)")

@@ -7,14 +7,14 @@
 # MAGIC
 # MAGIC ---
 # MAGIC
-# MAGIC ### 🎯 Learning objectives
+# MAGIC ### Learning objectives
 # MAGIC By the end of this notebook you will be able to:
 # MAGIC - Describe the **Wanderbricks** business and the questions its data teams need to answer
 # MAGIC - Name each of the **16 tables** in `samples.wanderbricks`, what one row represents, and its key columns
 # MAGIC - Read the **entity-relationship (ER) diagram** and join tables correctly
-# MAGIC - Recognise the **data-quality traps** in this dataset that we'll fix during Days 1–3
+# MAGIC - Recognise the **data-quality traps** in this dataset that we will fix during Days 1–3
 # MAGIC
-# MAGIC ### 🏢 Business context
+# MAGIC ### Business context
 # MAGIC **Wanderbricks** is a fictional online **vacation-rental marketplace**, similar to Airbnb or Vrbo.
 # MAGIC - **Hosts** list **properties** in 42 world **destinations**.
 # MAGIC - **Users** (individual travellers and business accounts) browse the website (**page views**, **clickstream**), make **bookings**, **pay**, and leave **reviews**.
@@ -26,15 +26,15 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ⚙️ Setup: your personal sandbox
+# MAGIC ## Setup: user schema
 # MAGIC
 # MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
-# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that isn't a letter, digit or `_` becomes `_`). For example, `jane_doe`.
-# MAGIC 3. Creates the schema **if it doesn't exist**, so the cell is safe to re-run.
-# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** sandbox.
+# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that is not a letter, digit or `_` becomes `_`). For example, `jane_doe`.
+# MAGIC 3. Creates the schema **if it does not exist**, so the cell is safe to re-run.
+# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** schema.
 # MAGIC
 # MAGIC > Source data is read **only** from `samples.wanderbricks`. Never write to `samples` or to anyone else's schema.
 
@@ -48,19 +48,19 @@ SRC = "samples.wanderbricks"
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
 USER_SCHEMA = re.sub(r"[^a-z0-9_]", "_", USER_EMAIL.split("@")[0].lower())
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal sandbox for Databricks Catalyst training'")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal schema for Databricks Catalyst training'")
 spark.sql(f"USE CATALOG `{CATALOG}`")
 spark.sql(f"USE SCHEMA `{USER_SCHEMA}`")
 
-FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified sandbox, handy in f-strings
+FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified user schema name, used in f-strings
 print(f"User        : {USER_EMAIL}")
-print(f"Sandbox     : {FQ}")
+print(f"Schema      : {FQ}")
 print(f"Source data : {SRC} (read-only)")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 1. What's in the schema?
+# MAGIC ## 1. What is in the schema?
 # MAGIC
 # MAGIC The `information_schema` is Unity Catalog's built-in, queryable metadata catalog. Below we list every table in `samples.wanderbricks` along with the **description its owner wrote** (the table comment). Good comments like these are what make data **discoverable** (Day 1) and **Genie-ready** (Day 3).
 
@@ -247,10 +247,10 @@ displayHTML(f"""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC **Reading the result:** most relationships are clean. However, **8 payments** and **47 booking updates** point to bookings that don't exist. These orphans are real-world issues, and the Day 2 pipelines handle them.
+# MAGIC **Reading the result:** most relationships are clean. However, **8 payments** and **47 booking updates** point to bookings that do not exist. These orphans are real-world issues, and the Day 2 pipelines handle them.
 # MAGIC
 # MAGIC ## 5. Data-quality profile
-# MAGIC Next we save a reusable **data-quality profile** to *your* sandbox as table `dq_profile`. Each row is one check, so we can re-run it later and compare results.
+# MAGIC Next we save a reusable **data-quality profile** to *your* schema as table `dq_profile`. Each row is one check, so we can re-run it later and compare results.
 
 # COMMAND ----------
 
@@ -274,7 +274,7 @@ displayHTML(f"""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 🔎 Key observations (keep these in mind all week)
+# MAGIC ### Key observations (relevant throughout the training)
 # MAGIC | # | Observation | Where we deal with it |
 # MAGIC |---|---|---|
 # MAGIC | 1 | Declared PKs are **not unique** in `reviews`, `page_views` and `payments`, because constraints are informational only | Day 2 (DQ checks fail the job; we dedupe and repair) |
@@ -318,8 +318,8 @@ displayHTML(f"""
 # MAGIC | 2 | Data Engineering | "Turn the daily booking-change files into a reliable, scheduled bronze → silver → gold pipeline, and fix it when it breaks." |
 # MAGIC | 3 | Leadership / Guest Experience | "Show revenue and host performance in Power BI, and let managers ask questions in plain English with Genie." |
 # MAGIC
-# MAGIC ## 🧹 Cleanup (optional)
-# MAGIC This notebook creates only one table, `dq_profile`, which later notebooks don't need. Set the widget to `yes` and run the cell to drop it.
+# MAGIC ## Cleanup (optional)
+# MAGIC This notebook creates only one table, `dq_profile`, which later notebooks do not need. Set the widget to `yes` and run the cell to drop it.
 
 # COMMAND ----------
 

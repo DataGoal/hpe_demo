@@ -9,7 +9,7 @@
 # MAGIC | 1.2 | Data discovery with Unity Catalog | §3–§5 |
 # MAGIC | 1.3 | Access control & secret scopes | §6–§8 |
 # MAGIC
-# MAGIC ### 🎯 Learning objectives
+# MAGIC ### Learning objectives
 # MAGIC - Explain the **lakehouse** and why Delta tables give warehouse reliability on cheap lake storage
 # MAGIC - Choose the right **compute** (serverless, classic all-purpose, job compute, SQL warehouse)
 # MAGIC - Navigate the **3-level namespace** `catalog.schema.object` and discover data with SQL and the UI
@@ -17,23 +17,23 @@
 # MAGIC - **GRANT / REVOKE** privileges and protect PII with a **dynamic view**
 # MAGIC - Use **secret scopes** instead of hard-coded credentials
 # MAGIC
-# MAGIC ### 🏢 Today's scenario
-# MAGIC > *"Hi! I'm Priya from **Wanderbricks Finance**. I need a monthly revenue view by destination, but Security says I must not see guests' email addresses. Can you find the right data, build it in a governed way, and share **only** what I need?"*
+# MAGIC ### Today's scenario
+# MAGIC > **Request from Wanderbricks Finance:** *"We need a monthly revenue view by destination. Per Security policy, guest email addresses must not be visible to our team. Please locate the appropriate data, build the dataset in a governed manner, and share only what is required."*
 # MAGIC >
-# MAGIC > You are the new data engineer. Let's go.
+# MAGIC > As the data engineer assigned to this request, you will complete it in the sections below.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ⚙️ Setup: your personal sandbox
+# MAGIC ## Setup: user schema
 # MAGIC
 # MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
-# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that isn't a letter, digit or `_` becomes `_`). For example, `jane_doe`.
-# MAGIC 3. Creates the schema **if it doesn't exist**, so the cell is safe to re-run.
-# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** sandbox.
+# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that is not a letter, digit or `_` becomes `_`). For example, `jane_doe`.
+# MAGIC 3. Creates the schema **if it does not exist**, so the cell is safe to re-run.
+# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** schema.
 # MAGIC
 # MAGIC > Source data is read **only** from `samples.wanderbricks`. Never write to `samples` or to anyone else's schema.
 
@@ -47,13 +47,13 @@ SRC = "samples.wanderbricks"
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
 USER_SCHEMA = re.sub(r"[^a-z0-9_]", "_", USER_EMAIL.split("@")[0].lower())
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal sandbox for Databricks Catalyst training'")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal schema for Databricks Catalyst training'")
 spark.sql(f"USE CATALOG `{CATALOG}`")
 spark.sql(f"USE SCHEMA `{USER_SCHEMA}`")
 
-FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified sandbox, handy in f-strings
+FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified user schema name, used in f-strings
 print(f"User        : {USER_EMAIL}")
-print(f"Sandbox     : {FQ}")
+print(f"Schema      : {FQ}")
 print(f"Source data : {SRC} (read-only)")
 
 # COMMAND ----------
@@ -72,7 +72,7 @@ print(f"Source data : {SRC} (read-only)")
 # MAGIC
 # MAGIC **Key idea:** storage (cloud object storage) and compute (clusters / serverless) are **separate**. Data sits once in an open format, and many engines and workloads use it.
 # MAGIC
-# MAGIC Let's prove that `samples.wanderbricks.bookings` is just a **Delta table**: Parquet files plus a transaction log in cloud storage.
+# MAGIC The following cell confirms that `samples.wanderbricks.bookings` is a **Delta table**: Parquet files plus a transaction log in cloud storage.
 
 # COMMAND ----------
 
@@ -82,7 +82,7 @@ print(f"Source data : {SRC} (read-only)")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 👀 **Look at:** `format = delta`, `location` (a cloud storage path), `numFiles` and `sizeInBytes`. The table is files in object storage; the compute you are running right now only *reads* them.
+# MAGIC **Review:** `format = delta`, `location` (a cloud storage path), `numFiles` and `sizeInBytes`. The table is files in object storage; the compute you are running right now only *reads* them.
 # MAGIC
 # MAGIC The **transaction log** gives every Delta table a version history (the basis for ACID and **time travel**):
 
@@ -109,9 +109,9 @@ print(f"Source data : {SRC} (read-only)")
 # MAGIC - Memory-heavy joins and aggregations → memory-optimised nodes; ML → GPU; heavy shuffles → more cores.
 # MAGIC - **Access mode:** *Standard* (shared, UC-governed) for most teams; *Dedicated* (single user) for ML/R/GPU.
 # MAGIC
-# MAGIC 🖱️ **UI walkthrough:** Sidebar → **Compute** → see *All-purpose*, *Job compute*, *SQL warehouses*. Open the notebook's compute selector (top right) → **Serverless**.
+# MAGIC **UI walkthrough:** Sidebar → **Compute** → see *All-purpose*, *Job compute*, *SQL warehouses*. Open the notebook's compute selector (top right) → **Serverless**.
 # MAGIC
-# MAGIC Below, we ask the engine which version it runs. On serverless you don't choose a runtime version, because Databricks keeps it current.
+# MAGIC Below, we ask the engine which version it runs. On serverless you do not choose a runtime version, because Databricks keeps it current.
 
 # COMMAND ----------
 
@@ -160,8 +160,8 @@ display(spark.sql("SELECT current_version() AS engine_version, current_user() AS
 # MAGIC %sql
 # MAGIC -- Where is the money? Where is the PII?
 # MAGIC SELECT table_name, column_name, data_type,
-# MAGIC        CASE WHEN column_name RLIKE 'email|phone|name' AND table_name IN ('users','hosts','employees') THEN '⚠️ PII'
-# MAGIC             WHEN column_name RLIKE 'amount|price'                                                   THEN '💰 money'
+# MAGIC        CASE WHEN column_name RLIKE 'email|phone|name' AND table_name IN ('users','hosts','employees') THEN 'PII'
+# MAGIC             WHEN column_name RLIKE 'amount|price'                                                   THEN 'Financial'
 # MAGIC        END AS tag
 # MAGIC FROM samples.information_schema.columns
 # MAGIC WHERE table_schema = 'wanderbricks'
@@ -177,14 +177,14 @@ display(spark.sql("SELECT current_version() AS engine_version, current_user() AS
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 🖱️ **UI walkthrough: Catalog Explorer** (sidebar → **Catalog**)
+# MAGIC **UI walkthrough: Catalog Explorer** (sidebar → **Catalog**)
 # MAGIC 1. **Search** "bookings" in the top bar.
 # MAGIC 2. **Browse** `samples` → `wanderbricks` → `bookings`.
 # MAGIC 3. **Inspect** the tabs: *Columns*, *Sample Data*, *Details*, *Permissions*, *History*, *Lineage*, *Insights*.
 # MAGIC 4. **Trust:** the *Insights* tab shows frequent users and queries; *Lineage* shows upstream and downstream objects.
 # MAGIC
 # MAGIC ---
-# MAGIC ## 4. Build governed objects in your sandbox (Module 1.2)
+# MAGIC ## 4. Build governed objects in your schema (Module 1.2)
 # MAGIC
 # MAGIC ### 4a. Managed table (CTAS)
 # MAGIC We join bookings with properties and destinations to create an enriched, analysis-ready table.
@@ -257,7 +257,7 @@ display(spark.sql("SELECT current_version() AS engine_version, current_user() AS
 
 # MAGIC %md
 # MAGIC ### 4d. Function: reusable, governed logic
-# MAGIC A SQL **user-defined function (UDF)** lives in the schema and is governed like a table. This one masks an email address, and we'll use it for PII protection in §7.
+# MAGIC A SQL **user-defined function (UDF)** lives in the schema and is governed like a table. This one masks an email address, and we will use it for PII protection in §7.
 
 # COMMAND ----------
 
@@ -326,7 +326,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 🖱️ **Lineage:** open **Catalog → demo-catalog → *your schema* → v_bookings_finance → Lineage**. Unity Catalog captured, automatically, that the view reads `bookings_enriched`, which in turn reads three `samples.wanderbricks` tables, down to column level.
+# MAGIC **Lineage:** open **Catalog → demo-catalog → *your schema* → v_bookings_finance → Lineage**. Unity Catalog captured, automatically, that the view reads `bookings_enriched`, which in turn reads three `samples.wanderbricks` tables, down to column level.
 # MAGIC
 # MAGIC ---
 # MAGIC ## 5. Quick check: managed vs external
@@ -344,7 +344,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 👀 Look for **Type: MANAGED** in the output above.
+# MAGIC Look for **Type: MANAGED** in the output above.
 # MAGIC
 # MAGIC ---
 # MAGIC ## 6. Access control: GRANT & REVOKE (Module 1.3)
@@ -352,7 +352,7 @@ display(spark.sql(f"""
 # MAGIC ### Privilege model
 # MAGIC - To read `catalog.schema.table`, a user needs **`USE CATALOG`** on the catalog, **`USE SCHEMA`** on the schema, **and `SELECT`** on the table/view.
 # MAGIC - Privileges **inherit downward**: `SELECT` granted on a *schema* applies to all current and future tables in it.
-# MAGIC - The **owner** of an object (you, for objects in your sandbox) can grant on it.
+# MAGIC - The **owner** of an object (you, for objects in your schema) can grant on it.
 # MAGIC - Grant to **groups**, not individuals. `account users` is the built-in group of everyone in the account.
 # MAGIC
 # MAGIC | Privilege | Lets you… |
@@ -376,11 +376,11 @@ display(spark.sql(f"SHOW GRANTS ON VIEW {FQ}.v_bookings_finance"))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ✅ Anyone in the account can now run `SELECT * FROM <your sandbox>.v_bookings_finance`, but **cannot** read `bookings_enriched`, because they have no `SELECT` on it. The view's owner (you) supplies the access to the underlying table.
+# MAGIC Any user in the account can now run `SELECT * FROM <your schema>.v_bookings_finance`, but **cannot** read `bookings_enriched`, because they have no `SELECT` on it. The view's owner (you) supplies the access to the underlying table.
 # MAGIC
-# MAGIC 💬 **Try it with a neighbour:** query their `v_bookings_finance`, then their `bookings_enriched`. The second query fails with `PERMISSION_DENIED`.
+# MAGIC **Optional exercise:** obtain a colleague's schema name and query their `v_bookings_finance`, then their `bookings_enriched`. The second query fails with `PERMISSION_DENIED`.
 # MAGIC
-# MAGIC Now **revoke**. Least privilege means removing access as soon as it's no longer needed.
+# MAGIC Now **revoke**. Least privilege means removing access as soon as it is no longer needed.
 
 # COMMAND ----------
 
@@ -420,17 +420,17 @@ display(spark.sql(f"SHOW GRANTS ON VIEW {FQ}.v_bookings_finance"))
 
 # MAGIC %md
 # MAGIC You are not in `pii_readers`, so emails come back masked.
-# MAGIC ➡️ On Day 1B you'll do the same with **column masks** and **row filters**, which are attached *directly to a table*, so every query is protected.
+# MAGIC In notebook 01B you will apply the same protection with **column masks** and **row filters**, which are attached *directly to a table*, so every query is protected.
 # MAGIC
 # MAGIC ---
 # MAGIC ## 8. Secret scopes: never hard-code credentials (Module 1.3)
 # MAGIC
-# MAGIC ❌ **Never** do this in a notebook:
+# MAGIC **Never** do this in a notebook:
 # MAGIC ```python
 # MAGIC jdbc_password = "Sup3rS3cret!"        # visible to anyone who can read the notebook, its revisions and git history
 # MAGIC ```
 # MAGIC
-# MAGIC ✅ Store the value in a **secret scope** and read it at run time:
+# MAGIC Store the value in a **secret scope** and read it at run time:
 # MAGIC ```bash
 # MAGIC # One-time setup by an admin (Databricks CLI)
 # MAGIC databricks secrets create-scope training
@@ -465,7 +465,7 @@ except Exception as e:
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## ✅ Day 1 recap
+# MAGIC ## Day 1 recap
 # MAGIC | You did | Concept |
 # MAGIC |---|---|
 # MAGIC | `DESCRIBE DETAIL` / `HISTORY` on a sample table | Delta = open files + transaction log, separate from compute |
@@ -476,8 +476,8 @@ except Exception as e:
 # MAGIC | Dynamic view with `is_account_group_member` | PII protection |
 # MAGIC | `dbutils.secrets` | Credentials outside code |
 # MAGIC
-# MAGIC ### 🧠 Knowledge check (discuss)
-# MAGIC 1. You granted `SELECT` on a view but your colleague still gets `PERMISSION_DENIED`. What's missing?
+# MAGIC ### Knowledge check (discussion)
+# MAGIC 1. You granted `SELECT` on a view but your colleague still gets `PERMISSION_DENIED`. What is missing?
 # MAGIC 2. Why is a view safer than copying data into a new table for Finance?
 # MAGIC 3. What happens to the files when you `DROP` a managed table, and what about an external one?
 # MAGIC 4. A job needs a database password. Where should it live?
@@ -485,13 +485,13 @@ except Exception as e:
 # MAGIC <details><summary>Answers</summary>
 # MAGIC
 # MAGIC 1. `USE CATALOG` on `demo-catalog` and/or `USE SCHEMA` on your schema.
-# MAGIC 2. There is one copy of the data, it's always fresh, and you control exactly which columns and rows are exposed.
+# MAGIC 2. There is one copy of the data, it is always fresh, and you control exactly which columns and rows are exposed.
 # MAGIC 3. Managed: the files are deleted (recoverable with `UNDROP` within 7 days). External: only the metadata is removed.
 # MAGIC 4. In a secret scope, read with `dbutils.secrets.get` / `secret()`.
 # MAGIC </details>
 # MAGIC
 # MAGIC ---
-# MAGIC ## 🧹 Cleanup (optional)
+# MAGIC ## Cleanup (optional)
 # MAGIC Keep these objects if you plan to do **01B**, because it reuses `bookings_enriched` and `fn_mask_email`.
 
 # COMMAND ----------
@@ -504,6 +504,6 @@ if dbutils.widgets.get("cleanup") == "yes":
                  "DROP FUNCTION IF EXISTS fn_mask_email",
                  "DROP VOLUME IF EXISTS raw_files"]:
         spark.sql(stmt)
-        print("✔", stmt)
+        print("Executed:", stmt)
 else:
     print("Cleanup skipped (set widget 'cleanup' = yes to drop Day 1 objects)")

@@ -5,27 +5,27 @@
 # MAGIC
 # MAGIC **Time:** 60–90 min · **Prerequisite:** notebook **02A**, and the `day2_tasks/` folder next to this notebook
 # MAGIC
-# MAGIC ### 🏢 Scenario: payment reconciliation and the 2 AM failure
-# MAGIC > **Finance:** *"Booking totals and payments don't add up. We need a reconciliation table that tells us, per booking, whether it's paid, under-paid, over-paid or unpaid."*
+# MAGIC ### Scenario: payment reconciliation and the 2 AM failure
+# MAGIC > **Finance:** *"Booking totals and payments do not add up. We need a reconciliation table that tells us, per booking, whether it is paid, under-paid, over-paid or unpaid."*
 # MAGIC >
 # MAGIC > **On-call engineer (you):** you build a payments pipeline with a **data-quality gate**. At 2 AM the gate fails… Find out why, fix the data, and **repair** the run.
 # MAGIC
 # MAGIC ### How to use this notebook
-# MAGIC 📋 Task → 💡 Hint → 🎯 Expected outcome → ✏️ TODO cell → ✔️ check cell (prints ✅ / ❌).
-# MAGIC **Solutions are at the end.**
+# MAGIC Each task follows the same structure: Task, Hint, Expected outcome, a TODO cell for your code, and a check cell that prints PASS or FAIL.
+# MAGIC **Solutions are provided at the end of the notebook.**
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ⚙️ Setup: your personal sandbox
+# MAGIC ## Setup: user schema
 # MAGIC
 # MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
-# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that isn't a letter, digit or `_` becomes `_`). For example, `jane_doe`.
-# MAGIC 3. Creates the schema **if it doesn't exist**, so the cell is safe to re-run.
-# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** sandbox.
+# MAGIC 2. Turns the part before `@` into a valid schema name (lower-case; anything that is not a letter, digit or `_` becomes `_`). For example, `jane_doe`.
+# MAGIC 3. Creates the schema **if it does not exist**, so the cell is safe to re-run.
+# MAGIC 4. Makes it your default catalog and schema, so unqualified names like `bookings_enriched` land in **your** schema.
 # MAGIC
 # MAGIC > Source data is read **only** from `samples.wanderbricks`. Never write to `samples` or to anyone else's schema.
 
@@ -39,13 +39,13 @@ SRC = "samples.wanderbricks"
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
 USER_SCHEMA = re.sub(r"[^a-z0-9_]", "_", USER_EMAIL.split("@")[0].lower())
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal sandbox for Databricks Catalyst training'")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS `{CATALOG}`.`{USER_SCHEMA}` COMMENT 'Personal schema for Databricks Catalyst training'")
 spark.sql(f"USE CATALOG `{CATALOG}`")
 spark.sql(f"USE SCHEMA `{USER_SCHEMA}`")
 
-FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified sandbox, handy in f-strings
+FQ = f"`{CATALOG}`.`{USER_SCHEMA}`"   # fully-qualified user schema name, used in f-strings
 print(f"User        : {USER_EMAIL}")
-print(f"Sandbox     : {FQ}")
+print(f"Schema      : {FQ}")
 print(f"Source data : {SRC} (read-only)")
 
 # COMMAND ----------
@@ -66,10 +66,10 @@ def check(label, fn):
     try:
         ok, detail = fn()
         CHECK_RESULTS[label] = bool(ok)
-        print(("✅ " if ok else "❌ ") + label + (f": {detail}" if detail else ""))
+        print(("[PASS] " if ok else "[FAIL] ") + label + (f": {detail}" if detail else ""))
     except Exception as e:
         CHECK_RESULTS[label] = False
-        print(f"⏳ {label}: not done yet ({type(e).__name__}: {str(e)[:120]})")
+        print(f"[PENDING] {label}: not completed yet ({type(e).__name__}: {str(e)[:120]})")
 
 def wait_for_run(run_id, repair_id=None, poll=15):
     """Poll a job run (or one of its repairs) until it finishes; return the Run object."""
@@ -103,12 +103,12 @@ display(dbutils.fs.ls(f"{LANDING}/payments"))
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 1 · Parameterised bronze ingestion
-# MAGIC 📋 Create a **widget** `source_format` (default `csv`). Then, using **CTAS + `read_files`** and that widget value, load the files under `{LANDING}/payments` into **`bronze_payments`**.
+# MAGIC Create a **widget** `source_format` (default `csv`). Then, using **CTAS + `read_files`** and that widget value, load the files under `{LANDING}/payments` into **`bronze_payments`**.
 # MAGIC Requirements:
 # MAGIC - `amount` must be `DECIMAL(15,4)` and `payment_date` a `TIMESTAMP` (use **schema hints**)
 # MAGIC - add a `_source_file` column (from `_metadata`) and an `_ingested_at` column
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC ```python
 # MAGIC fmt = dbutils.widgets.get("source_format")
@@ -119,11 +119,11 @@ display(dbutils.fs.ls(f"{LANDING}/payments"))
 # MAGIC ```
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** 49,638 rows; `amount` is `decimal(15,4)`.
+# MAGIC **Expected:** 49,638 rows; `amount` is `decimal(15,4)`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 1
+# TODO Task 1
 
 # COMMAND ----------
 
@@ -137,20 +137,20 @@ check("Task 1 · bronze_payments", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 2 · Profile before you trust
-# MAGIC 📋 Write **one query** returning these four numbers for `bronze_payments`:
+# MAGIC Write **one query** returning these four numbers for `bronze_payments`:
 # MAGIC `total_rows`, `duplicate_payment_ids` (rows minus distinct ids), `orphan_payments` (no matching booking in `samples.wanderbricks.bookings`), `bookings_with_multiple_payments`.
 # MAGIC Save it as view **`v_payments_profile`**.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC Use scalar sub-queries, or CTEs and a `CROSS JOIN`. Use `LEFT ANTI JOIN` for orphans. For multiple payments: `COUNT(*) - COUNT(DISTINCT booking_id)` counts *extra* rows; you want the number of `booking_id`s with `COUNT(*) > 1`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** `total_rows = 49638`, `duplicate_payment_ids = 4465`, `orphan_payments = 8`, `bookings_with_multiple_payments` is about 3,400.
+# MAGIC **Expected:** `total_rows = 49638`, `duplicate_payment_ids = 4465`, `orphan_payments = 8`, `bookings_with_multiple_payments` is about 3,400.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 2
+# TODO Task 2
 
 # COMMAND ----------
 
@@ -163,21 +163,21 @@ check("Task 2 · v_payments_profile", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 3 · A data-quality gate as a job (and watch it fail)
-# MAGIC 📋 Using the SDK, create (or reset) a job named `DQ_JOB_NAME` with **one task** `dq_check` that runs notebook `{TASKS_DIR}/t4_dq_check`.
+# MAGIC Using the SDK, create (or reset) a job named `DQ_JOB_NAME` with **one task** `dq_check` that runs notebook `{TASKS_DIR}/t4_dq_check`.
 # MAGIC Give the job **parameters** `catalog`, `schema`, `run_date`, `table` (= `bronze_payments`) and `key_cols` (= `payment_id`). Run it and wait.
 # MAGIC Then fetch the failed task's **error message** with `w.jobs.get_run_output(task_run_id)` and store the run id in a Python variable **`dq_run_id`**.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC Look at the job definition in 02A §6: you need `jobs.JobParameterDefinition`, `jobs.Task(task_key=…, notebook_task=jobs.NotebookTask(notebook_path=…))`, `w.jobs.create(...)` / `w.jobs.reset(...)`, `w.jobs.run_now(job_id).run_id`, and the `wait_for_run` helper.
 # MAGIC `run.tasks[0].run_id` is the **task** run id that `get_run_output` needs.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** the run **FAILS** with `ValueError: DQ check FAILED for bronze_payments: 4465 duplicate and 0 null values in key (payment_id)`.
+# MAGIC **Expected:** the run **FAILS** with `ValueError: DQ check FAILED for bronze_payments: 4465 duplicate and 0 null values in key (payment_id)`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 3
+# TODO Task 3
 
 # COMMAND ----------
 
@@ -191,21 +191,21 @@ check("Task 3 · DQ gate failed as expected", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 4 · Fix the data: silver_payments
-# MAGIC 📋 Build **`silver_payments`**, the trustworthy version:
+# MAGIC Build **`silver_payments`**, the trustworthy version:
 # MAGIC - **one row per `payment_id`**: keep the row with the latest `payment_date` (ties: highest `amount`)
 # MAGIC - **drop orphan payments**: keep only rows whose `booking_id` exists in `samples.wanderbricks.bookings`
 # MAGIC - keep columns `payment_id, booking_id, amount, payment_method, status, payment_date`
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC `QUALIFY ROW_NUMBER() OVER (PARTITION BY payment_id ORDER BY payment_date DESC, amount DESC) = 1` and `LEFT SEMI JOIN samples.wanderbricks.bookings USING (booking_id)`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** `payment_id` is unique; 0 orphans; row count = number of distinct valid `payment_id`s (about 45K).
+# MAGIC **Expected:** `payment_id` is unique; 0 orphans; row count = number of distinct valid `payment_id`s (about 45K).
 
 # COMMAND ----------
 
-# ✏️ TODO Task 4
+# TODO Task 4
 
 # COMMAND ----------
 
@@ -219,9 +219,9 @@ check("Task 4 · silver_payments", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 5 · Repair the failed run
-# MAGIC 📋 Don't start a new run: **repair** `dq_run_id` with the job parameter `table` overridden to `silver_payments`. Wait for the repair to finish.
+# MAGIC Do not start a new run: **repair** `dq_run_id` with the job parameter `table` overridden to `silver_payments`. Wait for the repair to finish.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC ```python
 # MAGIC repair_id = w.jobs.repair_run(run_id=dq_run_id, rerun_all_failed_tasks=True, job_parameters={...}).response.repair_id
@@ -229,11 +229,11 @@ check("Task 4 · silver_payments", lambda: (
 # MAGIC ```
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** the repair finishes **SUCCESS**; `dq_results` shows a failed row for `bronze_payments` followed by a passed row for `silver_payments`.
+# MAGIC **Expected:** the repair finishes **SUCCESS**; `dq_results` shows a failed row for `bronze_payments` followed by a passed row for `silver_payments`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 5
+# TODO Task 5
 
 # COMMAND ----------
 
@@ -247,7 +247,7 @@ check("Task 5 · repaired", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 6 · The reconciliation Finance asked for
-# MAGIC 📋 Build **`payment_recon`**, one row per booking in `samples.wanderbricks.bookings`:
+# MAGIC Build **`payment_recon`**, one row per booking in `samples.wanderbricks.bookings`:
 # MAGIC
 # MAGIC | Column | Logic |
 # MAGIC |---|---|
@@ -257,18 +257,18 @@ check("Task 5 · repaired", lambda: (
 # MAGIC | `net_paid` | `paid - refunded` |
 # MAGIC | `recon_status` | `'unpaid'` if no payment rows at all; else `'paid'` if `ABS(net_paid - booking_total) <= 0.01`; else `'underpaid'` / `'overpaid'` |
 # MAGIC
-# MAGIC Use **`silver_payments`** (never bronze!).
+# MAGIC Use **`silver_payments`**, not the bronze table.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC Aggregate payments per booking first (`SUM(CASE WHEN status = 'completed' THEN amount END)`), then `LEFT JOIN` to bookings. Use `COUNT(*)` of payment rows (or a flag) to detect "no payments at all".
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** 72,247 rows (one per booking). Look at the `recon_status` distribution: most `pending`/`cancelled` bookings are `unpaid`.
+# MAGIC **Expected:** 72,247 rows (one per booking). Look at the `recon_status` distribution: most `pending`/`cancelled` bookings are `unpaid`.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 6
+# TODO Task 6
 
 # COMMAND ----------
 
@@ -282,19 +282,19 @@ check("Task 6 · payment_recon", lambda: (
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Task 7 · Monitoring report
-# MAGIC 📋 Your manager wants a table **`job_run_report`** with every run of **your two jobs** (`wb_bookings_pipeline_<you>` from 02A and `DQ_JOB_NAME`): `job_name`, `run_id`, `result`, `duration_seconds`, `start_time`.
+# MAGIC Your manager wants a table **`job_run_report`** with every run of **your two jobs** (`wb_bookings_pipeline_<you>` from 02A and `DQ_JOB_NAME`): `job_name`, `run_id`, `result`, `duration_seconds`, `start_time`.
 # MAGIC **Bonus:** if you have access, query `system.lakeflow.job_run_timeline` for the same information.
 # MAGIC
-# MAGIC <details><summary>💡 Hint</summary>
+# MAGIC <details><summary>Hint</summary>
 # MAGIC
 # MAGIC `w.jobs.list(name=…)` → job id; `w.jobs.list_runs(job_id=…)` → runs with `.run_id`, `.state.result_state`, `.run_duration` (ms), `.start_time` (epoch ms). Build a list of tuples and `spark.createDataFrame(...)`.
 # MAGIC </details>
 # MAGIC
-# MAGIC 🎯 **Expected:** at least 1 row for the DQ job (likely 1 run with a repair) and several for the pipeline job if you ran 02A.
+# MAGIC **Expected:** at least 1 row for the DQ job (likely 1 run with a repair) and several for the pipeline job if you ran 02A.
 
 # COMMAND ----------
 
-# ✏️ TODO Task 7
+# TODO Task 7
 
 # COMMAND ----------
 
@@ -306,8 +306,8 @@ check("Task 7 · job_run_report", lambda: (
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## 🧠 Reflection questions
-# MAGIC 1. The table `samples.wanderbricks.payments` *declares* `payment_id` as a primary key. Why didn't that prevent duplicates?
+# MAGIC ## Reflection questions
+# MAGIC 1. The table `samples.wanderbricks.payments` *declares* `payment_id` as a primary key. Why did that not prevent duplicates?
 # MAGIC 2. Why is it better for the DQ task to **raise an exception** than to just print a warning?
 # MAGIC 3. In Task 5, what would have happened if you had clicked **Run now** instead of **Repair**, with no parameter change?
 # MAGIC 4. Where would you add an alert so the on-call engineer gets paged at 2 AM?
@@ -315,8 +315,8 @@ check("Task 7 · job_run_report", lambda: (
 # MAGIC
 # MAGIC ---
 # MAGIC ---
-# MAGIC # 🔑 Solutions
-# MAGIC > ⚠️ **Try the tasks first!**
+# MAGIC # Solutions
+# MAGIC > **Note:** Attempt the tasks before reviewing this section.
 
 # COMMAND ----------
 
@@ -387,7 +387,7 @@ else:
     DQ_JOB_ID = w.jobs.create(**job_spec).job_id
 
 dq_run_id = w.jobs.run_now(job_id=DQ_JOB_ID).run_id
-displayHTML(f'<a href="/jobs/{DQ_JOB_ID}/runs/{dq_run_id}" target="_blank">🔗 run {dq_run_id}</a>')
+displayHTML(f'<a href="/jobs/{DQ_JOB_ID}/runs/{dq_run_id}" target="_blank">Open run {dq_run_id}</a>')
 run, state = wait_for_run(dq_run_id)
 print("Result:", state.result_state)
 
@@ -497,13 +497,13 @@ except Exception as e:
 
 # MAGIC %md
 # MAGIC ### Reflection answers
-# MAGIC 1. Unity Catalog PK/FK constraints are **informational**: they're not enforced on write. You must check data quality yourself (or use `CHECK` constraints, or *expectations* in Lakeflow Declarative Pipelines).
+# MAGIC 1. Unity Catalog PK/FK constraints are **informational**: they are not enforced on write. You must check data quality yourself (or use `CHECK` constraints, or *expectations* in Lakeflow Declarative Pipelines).
 # MAGIC 2. A failed task **stops downstream tasks**, marks the run red, and triggers **failure notifications**. A printed warning is silently ignored.
 # MAGIC 3. A new run with the same parameters fails again on `bronze_payments`. Repair re-runs only the failed task in the same run, with the corrected parameter.
 # MAGIC 4. Job **Notifications** (email / Slack / PagerDuty webhook) on *Failure*, plus optionally a *duration threshold* alert.
 # MAGIC 5. Partial or instalment payments, refunds, currency rounding, failed payment retries, or pending bookings not yet charged.
 # MAGIC
-# MAGIC ### ✔️ Re-run all checks
+# MAGIC ### Re-run all checks
 
 # COMMAND ----------
 
@@ -523,7 +523,7 @@ if dbutils.widgets.get("validate") == "yes":
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## 🧹 Cleanup (optional)
+# MAGIC ## Cleanup (optional)
 
 # COMMAND ----------
 
@@ -531,13 +531,13 @@ dbutils.widgets.dropdown("cleanup", "no", ["no", "yes"], "Drop objects created h
 if dbutils.widgets.get("cleanup") == "yes":
     for j in w.jobs.list(name=DQ_JOB_NAME):
         w.jobs.delete(j.job_id)
-        print("✔ deleted job", j.job_id)
+        print("Deleted job:", j.job_id)
     for stmt in ["DROP TABLE IF EXISTS bronze_payments", "DROP TABLE IF EXISTS silver_payments",
                  "DROP TABLE IF EXISTS payment_recon", "DROP TABLE IF EXISTS job_run_report",
                  "DROP VIEW IF EXISTS v_payments_profile"]:
         spark.sql(stmt)
-        print("✔", stmt)
+        print("Executed:", stmt)
     dbutils.fs.rm(f"{LANDING}/payments", recurse=True)
-    print("✔ removed landing/payments files")
+    print("Removed landing/payments files")
 else:
     print("Cleanup skipped (set widget 'cleanup' = yes to drop Day 2B objects and the DQ job)")

@@ -47,4 +47,4 @@ spark.sql(f"""INSERT INTO dq_results VALUES (current_timestamp(), '{RUN_DATE}', 
 print(f"{TABLE}: rows={stats.row_count} duplicate_keys={stats.duplicate_keys} null_keys={stats.null_keys}")
 if not passed:
     raise ValueError(f"DQ check FAILED for {TABLE}: {stats.duplicate_keys} duplicate and {stats.null_keys} null values in key ({keys})")
-print("✅ DQ check passed")
+print("DQ check passed")

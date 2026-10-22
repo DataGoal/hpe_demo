@@ -13,13 +13,13 @@ Demo and exercise notebooks for the 3-day **Databricks Catalyst** training (Oct 
 | 2B | `notebooks/02B_Day2_Exercises.py` | Self-led | Parameterised ingestion, DQ profiling, DQ-gate job that fails on real duplicates, fix + repair, payment reconciliation, run report / system tables |
 | 3A | `notebooks/03A_Day3_SQL_Genie_PowerBI.py` | Instructor-led | SQL warehouses, star schema with PK/FK + comments, window functions / QUALIFY / ROLLUP / PIVOT, metric view, query history, Genie space setup guide, Power BI Import vs DirectQuery guide |
 | 3B | `notebooks/03B_Day3_Exercises.py` | Self-led | Array-of-struct sentiment cleaning, agent and property scorecards, web funnel, Genie-ready metadata, trusted SQL, Power BI design decisions |
-| | `notebooks/day2_tasks/t1_ingest.py` … `t4_dq_check.py` | Used by 2A/2B | Task notebooks that the Day 2 jobs run (ingest → merge → gold ‖ DQ check). **Import them with the folder; don't run them by hand.** |
+| | `notebooks/day2_tasks/t1_ingest.py` … `t4_dq_check.py` | Used by 2A/2B | Task notebooks that the Day 2 jobs run (ingest → merge → gold ‖ DQ check). **Import them with the folder; do not run them by hand.** |
 
 ## Run order
 `00` → `01A` → `01B` → `02A` → `02B` → `03A` → `03B`
 
 - 01B, 02B and 03B are self-contained, but follow-on tasks assume the matching A notebook ran first (02B also needs `day2_tasks/`).
-- B notebooks: participants fill in the `# TODO` cells; **solutions are in a section at the end**. Each task has a check cell that prints ✅ / ❌.
+- B notebooks: participants fill in the `# TODO` cells; **solutions are in a section at the end**. Each task has a check cell that prints PASS or FAIL.
 
 ## Importing
 1. In the workspace, go to **Workspace → your folder → ⋮ → Import**, and import the whole `notebooks/` folder (keep the `day2_tasks/` sub-folder next to the 02 notebooks).
@@ -53,5 +53,5 @@ The first code cell of every notebook:
 
 ## Dataset caveats (also covered in notebook 00)
 - Declared primary keys are **not unique** in `reviews`, `page_views` and `payments`. 2B uses this to make a real DQ failure.
-- `page_views` / `clickstream` cover only about 2 minutes, so they're used for device/referrer/funnel analysis, not trends.
+- `page_views` / `clickstream` cover only about 2 minutes, so they are used for device/referrer/funnel analysis, not trends.
 - Booking data runs from Dec 2022 to Jul 2025, and the demos treat **2025-07-31** as "today".
