@@ -31,7 +31,7 @@
 # MAGIC %md
 # MAGIC ## Setup: user schema
 # MAGIC
-# MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
+# MAGIC Every participant works in an **isolated schema**: `` `hpe_catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
@@ -45,7 +45,7 @@
 
 import re
 
-CATALOG = "demo-catalog"
+CATALOG = "hpe_catalog"
 SRC = "samples.wanderbricks"
 
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
@@ -130,12 +130,12 @@ display(spark.sql("SELECT current_version() AS engine_version, current_user() AS
 # MAGIC
 # MAGIC ```
 # MAGIC Metastore (one per region)
-# MAGIC  └── Catalog            e.g. samples, demo-catalog
+# MAGIC  └── Catalog            e.g. samples, hpe_catalog
 # MAGIC       └── Schema        e.g. wanderbricks, <your_username>
 # MAGIC            └── Table / View / Volume / Function / Model
 # MAGIC ```
 # MAGIC Every object has a full name: **`catalog.schema.object`**, for example `samples.wanderbricks.bookings`.
-# MAGIC Names containing special characters (like `demo-catalog`) must be wrapped in **back-ticks**.
+# MAGIC Names containing special characters (like `hpe_catalog`) must be wrapped in **back-ticks**.
 
 # COMMAND ----------
 
@@ -330,7 +330,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC **Lineage:** open **Catalog → demo-catalog → *your schema* → v_bookings_finance → Lineage**. Unity Catalog captured, automatically, that the view reads `bookings_enriched`, which in turn reads three `samples.wanderbricks` tables, down to column level.
+# MAGIC **Lineage:** open **Catalog → hpe_catalog → *your schema* → v_bookings_finance → Lineage**. Unity Catalog captured, automatically, that the view reads `bookings_enriched`, which in turn reads three `samples.wanderbricks` tables, down to column level.
 # MAGIC
 # MAGIC ---
 # MAGIC ## 5. Quick check: managed vs external
@@ -372,7 +372,7 @@ display(spark.sql(f"""
 
 # COMMAND ----------
 
-# Schema-level statements need the schema name, so we build them in Python (FQ = `demo-catalog`.`<you>`)
+# Schema-level statements need the schema name, so we build them in Python (FQ = `hpe_catalog`.`<you>`)
 spark.sql(f"GRANT USE SCHEMA ON SCHEMA {FQ} TO `account users`")
 spark.sql(f"GRANT SELECT ON VIEW {FQ}.v_bookings_finance TO `account users`")
 display(spark.sql(f"SHOW GRANTS ON VIEW {FQ}.v_bookings_finance"))
@@ -488,7 +488,7 @@ except Exception as e:
 # MAGIC
 # MAGIC <details><summary>Answers</summary>
 # MAGIC
-# MAGIC 1. `USE CATALOG` on `demo-catalog` and/or `USE SCHEMA` on your schema.
+# MAGIC 1. `USE CATALOG` on `hpe_catalog` and/or `USE SCHEMA` on your schema.
 # MAGIC 2. There is one copy of the data, it is always fresh, and you control exactly which columns and rows are exposed.
 # MAGIC 3. Managed: the files are deleted (recoverable with `UNDROP` within 7 days). External: only the metadata is removed.
 # MAGIC 4. In a secret scope, read with `dbutils.secrets.get` / `secret()`.

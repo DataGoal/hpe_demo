@@ -137,16 +137,16 @@ else:
 
 # MAGIC %md
 # MAGIC ## 11. Create a Unity Catalog table from an ABFSS CSV file
-# MAGIC Loads `taxi_zone_lookup.csv` from ADLS Gen2 into the managed table `demo-catalog.karthikeyan_arum.nys_trips`.
+# MAGIC Loads `taxi_zone_lookup.csv` from ADLS Gen2 into the managed table `hpe_catalog.karthikeyan_arum.nys_trips`.
 # MAGIC
-# MAGIC * The catalog name contains a hyphen, so it must be wrapped in backticks: `` `demo-catalog` ``.
+# MAGIC * The catalog name contains a hyphen, so it must be wrapped in backticks: `` `hpe_catalog` ``.
 # MAGIC * The ABFSS path must be covered by a Unity Catalog external location you have `READ FILES` on (or the cluster must have storage credentials configured).
 
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC -- Create a managed Delta table from the CSV file on ADLS Gen2
-# MAGIC CREATE TABLE IF NOT EXISTS `demo-catalog`.karthikeyan_arum.nyc_trips
+# MAGIC CREATE TABLE IF NOT EXISTS `hpe_catalog`.karthikeyan_arum.nyc_trips
 # MAGIC COMMENT 'NYC taxi zone lookup loaded from ABFSS'
 # MAGIC AS
 # MAGIC SELECT *
@@ -158,14 +158,14 @@ else:
 # MAGIC );
 # MAGIC
 # MAGIC -- Verify the load
-# MAGIC SELECT COUNT(*) AS row_count FROM `demo-catalog`.karthikeyan_arum.nyc_trips;
+# MAGIC SELECT COUNT(*) AS row_count FROM `hpe_catalog`.karthikeyan_arum.nyc_trips;
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC DESCRIBE TABLE `demo-catalog`.karthikeyan_arum.nyc_trips;
+# MAGIC DESCRIBE TABLE `hpe_catalog`.karthikeyan_arum.nyc_trips;
 # MAGIC
-# MAGIC SELECT * FROM `demo-catalog`.karthikeyan_arum.nyc_trips LIMIT 10;
+# MAGIC SELECT * FROM `hpe_catalog`.karthikeyan_arum.nyc_trips LIMIT 10;
 
 # COMMAND ----------
 
@@ -200,7 +200,7 @@ display(df_agg)
 # DBTITLE 1,Create managed table with SQL (CTAS)
 # MAGIC %sql
 # MAGIC -- Uses the catalog/schema set in the previous cell
-# MAGIC CREATE OR REPLACE TABLE `demo-catalog`.karthikeyan_arum.taxi_trip
+# MAGIC CREATE OR REPLACE TABLE `hpe_catalog`.karthikeyan_arum.taxi_trip
 # MAGIC COMMENT 'Demo copy of NYC taxi trips'
 # MAGIC AS
 # MAGIC SELECT
@@ -222,9 +222,9 @@ display(df_agg)
 (df_agg.write
     .mode("overwrite")
     .option("overwriteSchema", "true")
-    .saveAsTable(f"`demo-catalog`.karthikeyan_arum.daily_trip_summary"))
+    .saveAsTable(f"`hpe_catalog`.karthikeyan_arum.daily_trip_summary"))
 
-display(spark.table(f"`demo-catalog`.karthikeyan_arum.daily_trip_summary").limit(10))
+display(spark.table(f"`hpe_catalog`.karthikeyan_arum.daily_trip_summary").limit(10))
 
 # COMMAND ----------
 

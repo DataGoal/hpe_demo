@@ -55,7 +55,7 @@ All paths are relative to `notebooks/`.
 | Requirement | Why |
 |---|---|
 | Serverless compute for notebooks **and** jobs | All notebooks and the Day 2 jobs run on serverless |
-| `USE CATALOG` + `CREATE SCHEMA` on `` `demo-catalog` `` | Each participant creates their own schema |
+| `USE CATALOG` + `CREATE SCHEMA` on `` `hpe_catalog` `` | Each participant creates their own schema |
 | `USE CATALOG`/`USE SCHEMA`/`SELECT` on `samples.wanderbricks` | Source data (read-only) |
 | Permission to create jobs | 02A and 02B create one job each |
 | *(optional)* `SELECT` on `system.query.history`, `system.lakeflow` | Optional monitoring cells; they fall back gracefully |
@@ -67,14 +67,14 @@ Secret scopes are covered **as a concept** (the code is wrapped in try/except), 
 The first code cell of every notebook:
 1. Reads `current_user()`, for example `jane.doe@company.com`.
 2. Takes the part before `@`, lower-cases it, and replaces any character outside `[a-z0-9_]` with `_`. For example, `jane_doe`.
-3. Runs `CREATE SCHEMA IF NOT EXISTS` `` `demo-catalog`.`jane_doe` `` and sets it as the current catalog/schema.
+3. Runs `CREATE SCHEMA IF NOT EXISTS` `` `hpe_catalog`.`jane_doe` `` and sets it as the current catalog/schema.
 
 **Every** table, view, function, volume, checkpoint and job artefact is created only in that schema (jobs are named `wb_bookings_pipeline_<user>` and `wb_payments_dq_<user>`). Nothing is written to `samples` or to shared schemas.
 
 ## Re-running & cleanup
 - All notebooks are idempotent (`CREATE OR REPLACE`, `IF NOT EXISTS`, `MERGE`; 02A resets its landing files and checkpoints at the start), so **Run all** can be repeated.
 - Each notebook ends with a **cleanup** cell controlled by a `cleanup` widget (default `no`). Set it to `yes` and run the cell to drop that notebook's objects (and its job, for 02A/02B).
-- To remove everything for a user: `DROP SCHEMA `demo-catalog`.`<user>` CASCADE`, and delete the two jobs.
+- To remove everything for a user: `DROP SCHEMA `hpe_catalog`.`<user>` CASCADE`, and delete the two jobs.
 
 ## Dataset caveats (also covered in notebook 00)
 - Declared primary keys are **not unique** in `reviews`, `page_views` and `payments`. 2B uses this to make a real DQ failure.

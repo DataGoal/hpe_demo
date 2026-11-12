@@ -28,7 +28,7 @@
 # MAGIC %md
 # MAGIC ## Setup: user schema
 # MAGIC
-# MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
+# MAGIC Every participant works in an **isolated schema**: `` `hpe_catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
@@ -42,7 +42,7 @@
 
 import re
 
-CATALOG = "demo-catalog"
+CATALOG = "hpe_catalog"
 SRC = "samples.wanderbricks"
 
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]

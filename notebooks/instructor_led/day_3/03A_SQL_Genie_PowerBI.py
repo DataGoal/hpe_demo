@@ -31,7 +31,7 @@
 # MAGIC %md
 # MAGIC ## Setup: user schema
 # MAGIC
-# MAGIC Every participant works in an **isolated schema**: `` `demo-catalog`.`<your_username>` ``.
+# MAGIC Every participant works in an **isolated schema**: `` `hpe_catalog`.`<your_username>` ``.
 # MAGIC
 # MAGIC This cell:
 # MAGIC 1. Reads your login with `current_user()` (for example, `jane.doe@company.com`).
@@ -45,7 +45,7 @@
 
 import re
 
-CATALOG = "demo-catalog"
+CATALOG = "hpe_catalog"
 SRC = "samples.wanderbricks"
 
 USER_EMAIL = spark.sql("SELECT current_user() AS u").first()["u"]
@@ -83,7 +83,7 @@ print(f"Source data : {SRC} (read-only)")
 # MAGIC | **Channel** | Current vs Preview features | Current |
 # MAGIC
 # MAGIC **SQL editor tour** (sidebar → **SQL Editor**)
-# MAGIC 1. Pick a **warehouse** (top right) and the catalog/schema (`demo-catalog` → your schema).
+# MAGIC 1. Pick a **warehouse** (top right) and the catalog/schema (`hpe_catalog` → your schema).
 # MAGIC 2. Write a query; **Cmd/Ctrl + Enter** runs the statement under the cursor.
 # MAGIC 3. **Save** → it becomes a **saved query** (sidebar → *Queries*) that you can share, schedule, or use in a dashboard or alert.
 # MAGIC 4. Open the **Assistant** and ask: *"Show monthly revenue by continent for 2025"*.
@@ -357,7 +357,7 @@ except Exception as e:
 # MAGIC
 # MAGIC ### 5a. Create the space (UI, about 5 minutes)
 # MAGIC 1. Sidebar → **Genie** → **+ New**.
-# MAGIC 2. **Data:** add `demo-catalog.<your_schema>`: `fact_bookings`, `dim_property`, `dim_user`, `dim_date` (and the metric view `mv_booking_metrics`).
+# MAGIC 2. **Data:** add `hpe_catalog.<your_schema>`: `fact_bookings`, `dim_property`, `dim_user`, `dim_date` (and the metric view `mv_booking_metrics`).
 # MAGIC 3. **Warehouse:** pick the class serverless warehouse.
 # MAGIC 4. **Title:** `Wanderbricks Bookings – <your name>`. **Description:** *"Ask about bookings, revenue, cancellations by destination, property type, guest type and time."*
 # MAGIC 5. **Instructions** (*Configure → Instructions*), paste:
@@ -427,7 +427,7 @@ except Exception as e:
 # MAGIC 2. Power BI Desktop → **Get data → Azure Databricks**.
 # MAGIC 3. Paste the hostname + HTTP path → choose **Import** or **DirectQuery**.
 # MAGIC 4. Authenticate with **Microsoft Entra ID** (preferred; personal access tokens only for testing).
-# MAGIC 5. Navigator → `demo-catalog` → your schema → select the star-schema tables → **Load**.
+# MAGIC 5. Navigator → `hpe_catalog` → your schema → select the star-schema tables → **Load**.
 # MAGIC 6. Model view: the relationships come from the FK constraints. Set dims to **Dual** and the fact to **DirectQuery** for a composite model.
 # MAGIC
 # MAGIC > The Azure Databricks connector ships inside Power BI (ADBC-based), so there is no ODBC driver to install. That is the "zero-driver" experience.

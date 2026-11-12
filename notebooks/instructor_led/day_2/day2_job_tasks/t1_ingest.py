@@ -8,7 +8,7 @@
 
 # Job parameters arrive as widgets. Defaults let you also run this notebook by hand.
 import re
-dbutils.widgets.text("catalog", "demo-catalog")
+dbutils.widgets.text("catalog", "hpe_catalog")
 dbutils.widgets.text("schema", "")
 dbutils.widgets.text("run_date", "2025-07-31")
 
